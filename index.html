@@ -1,817 +1,409 @@
 <!DOCTYPE html>
-
 <html lang="ja">
-
 <head>
-
   <meta charset="utf-8" />
-
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-
-  <title>kubota WSM AI.b - Mobile Fixed</title>
-
-
+  <title>kubota WSM AI - Mobile Fixed</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
-
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
-
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
 
-
-
   <style>
-
     :root {
-
       --panel-width: min(46vw, 920px);
-
       --panel-min: 360px;
-
       --divider: rgba(0,0,0,.10);
-
       --header-h: 48px;
-
     }
-
     html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; }
-
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
-
     .chatArea { flex: 1; position: relative; }
 
-
-
     /* PDFパネル */
-
     .pdfPanel {
-
       width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider);
-
       background: #fff; overflow: hidden; transition: all 300ms ease;
-
     }
-
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
-
     .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
-
     .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); }
-
     .pdfTitle { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
     .pdfFrame { flex: 1; border: 0; }
 
-
-
     /* マイクボタン */
-
     #custom-mic-btn {
-
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
-
       width: 44px; height: 44px; border: none; background: #f0f0f0;
-
       border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-
       box-shadow: 0 2px 8px rgba(0,0,0,0.2); touch-action: manipulation;
-
       transition: background 0.2s;
-
     }
-
     #custom-mic-btn.recording {
-
       background: #ff4b4b; color: white; animation: pulse 1.2s infinite;
-
     }
-
     @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,75,75,0.5); } 50% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
 
-
-
     /* ▼ トースト通知（alert の代替） */
-
     #stt-toast {
-
       position: fixed;
-
       bottom: 75px;
-
       left: 50%;
-
       transform: translateX(-50%) translateY(12px);
-
       background: rgba(30,30,30,0.92);
-
       color: #fff;
-
       padding: 10px 18px;
-
       border-radius: 10px;
-
       font-size: 13px;
-
       line-height: 1.5;
-
       text-align: center;
-
       max-width: 82vw;
-
       word-break: break-all;
-
       z-index: 2147483647;
-
       opacity: 0;
-
       pointer-events: none;
-
       transition: opacity 0.25s ease, transform 0.25s ease;
-
       white-space: pre-line;
-
     }
-
     #stt-toast.show {
-
       opacity: 1;
-
       transform: translateX(-50%) translateY(0);
-
       pointer-events: auto;
-
     }
-
     #stt-toast .paste-hint {
-
       display: block;
-
       margin-top: 6px;
-
       font-size: 11px;
-
       color: #adf;
-
     }
-
-
 
     @media (max-width: 900px) {
-
       .pdfPanel { position: fixed; right: 0; top: 0; height: 100vh; z-index: 99999; transform: translateX(100%); }
-
       body.pdf-open .pdfPanel { transform: translateX(0); width: 100vw; }
-
       .pdfPanelInner { width: 100vw; }
-
       #custom-mic-btn { bottom: 12px; right: 55px; }
-
       #stt-toast { bottom: 70px; }
-
     }
-
   </style>
-
 </head>
-
 <body>
 
-
-
   <div class="app">
-
     <div class="chatArea">
-
       <chat-messenger id="messenger" allow-citations="true" style="width:100%; height:100%;">
-
         <chat-messenger-container chat-title="kubota-wsm-ai">
-
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
-
         </chat-messenger-container>
-
       </chat-messenger>
 
-
-
       <!-- カスタムマイクボタン -->
-
       <button id="custom-mic-btn" title="音声入力（タップして話す）">
-
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-
           <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-
         </svg>
-
       </button>
-
     </div>
 
-
-
     <aside class="pdfPanel">
-
       <div class="pdfPanelInner">
-
         <div class="pdfHeader">
-
           <div id="pdfTitle" class="pdfTitle"></div>
-
           <button onclick="closePdfPanel()">閉じる</button>
-
         </div>
-
         <iframe id="pdfFrame" class="pdfFrame"></iframe>
-
       </div>
-
     </aside>
-
   </div>
 
-
-
   <!-- トースト通知 -->
-
   <div id="stt-toast"></div>
 
-
-
   <script>
-
     /* =====================================================
-
        定数
-
     ===================================================== */
-
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-
-
     /* =====================================================
-
        PDFパネル
-
     ===================================================== */
-
     function openPdfInRightPanel(url) {
-
       document.getElementById("pdfTitle").textContent = "引用元PDF";
-
       document.getElementById("pdfFrame").src = url;
-
       document.body.classList.add("pdf-open");
-
     }
-
     function closePdfPanel() {
-
       document.body.classList.remove("pdf-open");
-
       document.getElementById("pdfFrame").src = "";
-
     }
 
-
-
     /* =====================================================
-
        トースト表示ユーティリティ
-
     ===================================================== */
-
     let toastTimer = null;
-
     function showToast(msg, duration = 3500) {
-
       const t = document.getElementById('stt-toast');
-
       t.innerHTML = msg;
-
       t.classList.add('show');
-
       clearTimeout(toastTimer);
-
       toastTimer = setTimeout(() => t.classList.remove('show'), duration);
-
     }
 
-
-
     /* =====================================================
-
        Shadow DOM 再帰検索
-
        ※ closed モード等で shadowRoot が null の場合もあるため
-
           composedPath 方式をメインとし、こちらはサブ手段
-
     ===================================================== */
-
     function deepQuerySelector(root, selector) {
-
       if (!root) return null;
-
       const el = root.querySelector(selector);
-
       if (el) return el;
-
       for (const child of root.querySelectorAll('*')) {
-
         if (child.shadowRoot) {
-
           const found = deepQuerySelector(child.shadowRoot, selector);
-
           if (found) return found;
-
         }
-
       }
-
       return null;
-
     }
 
-
-
     /* =====================================================
-
        ▼▼▼ 核心修正 ①
-
        composedPath() でイベント発生元の実 DOM 要素を捕捉
-
        ── click / focusin / touchend どれかのタイミングで
-
           chat コンポーネント内の input / textarea /
-
           contenteditable 要素の参照を保持する ──
-
     ===================================================== */
-
     let targetInput = null;   // 入力欄への参照を保持
 
-
-
     function captureTarget(e) {
-
       const path = e.composedPath ? e.composedPath() : [];
-
       for (const el of path) {
-
         if (!(el instanceof Element)) continue;
-
         const tag = el.tagName.toLowerCase();
-
         // input / textarea / contenteditable を対象とする
-
         if (
-
           (tag === 'input'    && !['hidden','checkbox','radio','submit','button','file'].includes(el.type)) ||
-
           (tag === 'textarea') ||
-
           (el.contentEditable === 'true')
-
         ) {
-
           if (el.id !== 'custom-mic-btn') {  // マイクボタン自身は除外
-
             targetInput = el;
-
             console.log('[STT] 入力欄を捕捉:', tag, el.type || '', el.placeholder || '');
-
           }
-
           break;
-
         }
-
       }
-
     }
-
-
 
     // キャプチャーフェーズで全イベントを横取り
-
     document.addEventListener('focusin',   captureTarget, true);
-
     document.addEventListener('click',     captureTarget, true);
-
     document.addEventListener('touchend',  captureTarget, { capture: true, passive: true });
 
-
-
     /* =====================================================
-
        ▼▼▼ 核心修正 ②
-
        テキスト挿入関数（3段階フォールバック）
-
     ===================================================== */
-
     function insertTextToElement(el, text) {
-
       el.focus();
 
-
-
       setTimeout(() => {
-
         /* --- 方法 A: execCommand('insertText')
-
                フォーカス済み要素に直接書き込む。Shadow DOM 境界を越えて動作し
-
                フレームワークの beforeinput / input イベントも発火する ---------- */
-
         try {
-
           const ok = document.execCommand('insertText', false, text);
-
           if (ok) {
-
             console.log('[STT] ✅ execCommand 成功');
-
             return;
-
           }
-
         } catch (_) {}
-
-
 
         /* --- 方法 B: ネイティブ prototype setter
-
                React / LitElement 管理下の input でも状態更新を発火させる ------ */
-
         try {
-
           const tag = el.tagName.toLowerCase();
-
           if (tag === 'input' || tag === 'textarea') {
-
             const proto  = tag === 'textarea' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-
             const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-
             setter ? setter.call(el, text) : (el.value = text);
-
             el.dispatchEvent(new Event('input',  { bubbles: true, composed: true }));
-
             el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-
             console.log('[STT] ✅ native setter 成功');
-
             return;
-
           } else {
-
             // contenteditable
-
             el.focus();
-
             document.execCommand('selectAll', false, null);
-
             document.execCommand('insertText', false, text);
-
             console.log('[STT] ✅ contenteditable execCommand 成功');
-
             return;
-
           }
-
         } catch (_) {}
 
-
-
         /* --- 方法 C: クリップボード ＋ トースト通知（最終フォールバック） ---- */
-
         console.warn('[STT] ⚠️ 直接挿入失敗 → クリップボードへ');
-
         showClipboardFallback(text);
 
-
-
       }, 80);   // focus が確定するまで少し待つ
-
     }
-
-
 
     function showClipboardFallback(text) {
-
       if (navigator.clipboard && navigator.clipboard.writeText) {
-
         navigator.clipboard.writeText(text)
-
           .then(() => {
-
             showToast(
-
               '🎤 「' + text + '」\n' +
-
               '<span class="paste-hint">クリップボードにコピーしました。\n入力欄を長押しして「ペースト」してください。</span>',
-
               5000
-
             );
-
             // 入力欄にフォーカスを戻す（ペーストしやすいように）
-
             if (targetInput) { try { targetInput.focus(); } catch(_){} }
-
           })
-
           .catch(() => showToast('🎤 認識結果: 「' + text + '」\n入力欄に手動でご入力ください。', 5000));
-
       } else {
-
         showToast('🎤 認識結果: 「' + text + '」\n入力欄に手動でご入力ください。', 5000);
-
       }
-
     }
 
-
-
     /* =====================================================
-
        音声認識セットアップ
-
     ===================================================== */
-
     const micBtn = document.getElementById('custom-mic-btn');
-
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-
-
     if (!SpeechRecognition) {
-
       micBtn.style.opacity = '0.35';
-
       micBtn.disabled = true;
-
       micBtn.title = '音声入力非対応（Chrome / Edge / Safari をご利用ください）';
-
     } else {
-
       const recognition = new SpeechRecognition();
-
       recognition.lang            = 'ja-JP';
-
       recognition.interimResults  = false;
-
       recognition.continuous      = false;
-
       recognition.maxAlternatives = 1;
-
-
 
       let isRecording = false;
 
-
-
       /* -- マイクボタン押下 -- */
-
       micBtn.addEventListener('click', () => {
-
         if (isRecording) {
-
           recognition.stop();
-
         } else {
-
           // 録音開始前に入力欄参照が未取得の場合、Shadow DOM 検索を試みる
-
           if (!targetInput) {
-
             const messenger = document.getElementById('messenger');
-
             if (messenger.shadowRoot) {
-
               targetInput =
-
                 deepQuerySelector(messenger.shadowRoot, 'textarea') ||
-
                 deepQuerySelector(messenger.shadowRoot, 'input[type="text"]') ||
-
                 deepQuerySelector(messenger.shadowRoot, 'input:not([type="hidden"])') ||
-
                 deepQuerySelector(messenger.shadowRoot, '[contenteditable="true"]');
-
             }
-
           }
-
           try { recognition.start(); } catch (e) { console.warn('[STT] start error:', e); }
-
         }
-
       });
 
-
-
       recognition.onstart = () => {
-
         isRecording = true;
-
         micBtn.classList.add('recording');
-
         showToast('🎤 聞いています…', 10000);
-
         console.log('[STT] 録音開始');
-
       };
-
-
 
       recognition.onend = () => {
-
         isRecording = false;
-
         micBtn.classList.remove('recording');
-
         console.log('[STT] 録音終了');
-
       };
 
-
-
       /* ▼▼▼ 核心修正 ③ onresult — composedPath 取得した要素へ挿入 ▼▼▼ */
-
       recognition.onresult = (event) => {
-
         const transcript = event.results[0][0].transcript.trim();
-
         console.log('[STT] 認識テキスト:', transcript);
-
-
 
         if (!transcript) return;
 
-
-
         if (targetInput) {
-
           // composedPath で捕捉済みの入力欄へ挿入
-
           insertTextToElement(targetInput, transcript);
-
         } else {
-
           // 最終手段: Shadow DOM 再帰検索
-
           const messenger = document.getElementById('messenger');
-
           let el = null;
-
           if (messenger.shadowRoot) {
-
             el = deepQuerySelector(messenger.shadowRoot, 'textarea') ||
-
                  deepQuerySelector(messenger.shadowRoot, 'input[type="text"]') ||
-
                  deepQuerySelector(messenger.shadowRoot, 'input:not([type="hidden"])') ||
-
                  deepQuerySelector(messenger.shadowRoot, '[contenteditable="true"]');
-
           }
-
           if (el) {
-
             targetInput = el;
-
             insertTextToElement(el, transcript);
-
           } else {
-
             showClipboardFallback(transcript);
-
           }
-
         }
-
       };
-
-
 
       /* -- エラーハンドリング（種別ごとに対応） -- */
-
       recognition.onerror = (event) => {
-
         isRecording = false;
-
         micBtn.classList.remove('recording');
-
         console.warn('[STT] error:', event.error);
-
         switch (event.error) {
-
           case 'no-speech':
-
             showToast('マイクに音声が届きませんでした。\nもう一度お試しください。', 3000);
-
             break;
-
           case 'not-allowed':
-
           case 'permission-denied':
-
             showToast('⚠️ マイクへのアクセスが拒否されています。\nブラウザ設定でマイクを許可してください。', 4000);
-
             break;
-
           case 'network':
-
             showToast('⚠️ 音声認識にはネット接続が必要です。', 3000);
-
             break;
-
           case 'audio-capture':
-
             showToast('⚠️ マイクが見つかりません。\nデバイスのマイクを確認してください。', 3000);
-
             break;
-
           case 'aborted':
-
             break; // 手動停止は無視
-
           default:
-
             showToast('⚠️ 音声認識エラー: ' + event.error, 3000);
-
         }
-
       };
-
     }
 
-
-
     /* =====================================================
-
        初期化
-
     ===================================================== */
-
     window.addEventListener("DOMContentLoaded", () => {
 
-
-
       /* chatSdk 初期化 */
-
       const t = setInterval(() => {
-
         if (window.chatSdk) {
-
           chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
-
             deploymentName: DEPLOYMENT,
-
             tokenBroker:  { enableTokenBroker: true },
-
             pdfPreview:   { enablePdfPreview:  true }
-
           }));
-
           clearInterval(t);
-
         }
-
       }, 300);
 
-
-
       /* PDF リンク横取り */
-
       window.addEventListener("click", (e) => {
-
         const path = e.composedPath();
-
         const a = path.find(el => el.tagName === "A");
-
         if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
-
           e.preventDefault();
-
           e.stopImmediatePropagation();
-
           openPdfInRightPanel(a.href);
-
         }
-
       }, true);
-
     });
-
   </script>
-
 </body>
-
 </html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI.a - Stable PDF</title>
+  <title>kubota WSM AI.b - Stable PDF</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -15,37 +15,71 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
 
-    .pdfPanel { 
-      width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); 
-      background: #fff; overflow: hidden; transition: all 300ms ease; 
+    .pdfPanel {
+      width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider);
+      background: #fff; overflow: hidden; transition: all 300ms ease;
     }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
     .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
     .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); justify-content: space-between; }
     .pdfFrame { flex: 1; border: 0; width: 100%; height: 100%; }
 
+    /* ─── マイクボタン ─── */
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
-      width: 44px; height: 44px; border: none; background: #f0f0f0;
+      width: 48px; height: 48px; border: none; background: #f0f0f0;
       border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: background 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25); transition: background 0.2s; -webkit-tap-highlight-color: transparent;
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; animation: pulse 1.2s infinite; }
     #custom-mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.4); } 100% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
-
-    /* 音声認識トースト通知 */
-    #mic-toast {
-      position: fixed; bottom: 70px; right: 20px; z-index: 2147483647;
-      background: rgba(0,0,0,0.75); color: #fff; padding: 7px 14px;
-      border-radius: 20px; font-size: 13px; pointer-events: none;
-      opacity: 0; transition: opacity 0.3s; white-space: nowrap;
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(255,75,75,0.5); }
+      100% { box-shadow: 0 0 0 14px rgba(255,75,75,0); }
     }
-    #mic-toast.show { opacity: 1; }
 
-    @media (max-width: 900px) {
-      .pdfPanel { display: none; }
+    /* ─── 音声認識オーバーレイ（認識中テキスト表示 + 送信ボタン） ─── */
+    #voice-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 2147483646;
+      background: rgba(0,0,0,0.55);
+      align-items: flex-end; justify-content: center;
+      padding-bottom: 80px;
     }
+    #voice-overlay.active { display: flex; }
+    #voice-box {
+      background: #fff; border-radius: 18px; width: min(92vw, 480px);
+      padding: 20px 18px 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    #voice-status {
+      font-size: 13px; color: #888; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    #voice-dot {
+      width: 10px; height: 10px; border-radius: 50%; background: #ff4b4b;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.2; } }
+    #voice-text {
+      font-size: 17px; min-height: 48px; color: #111; line-height: 1.5;
+      border: 1px solid #e0e0e0; border-radius: 10px; padding: 10px 12px;
+      margin-bottom: 14px; white-space: pre-wrap; word-break: break-all;
+      outline: none;
+    }
+    #voice-text:empty::before { content: attr(data-placeholder); color: #bbb; }
+    #voice-actions { display: flex; gap: 10px; }
+    #voice-send-btn {
+      flex: 1; padding: 11px; background: #1a73e8; color: #fff;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+      cursor: pointer;
+    }
+    #voice-send-btn:disabled { background: #ccc; }
+    #voice-cancel-btn {
+      padding: 11px 18px; background: #f5f5f5; color: #555;
+      border: none; border-radius: 10px; font-size: 15px; cursor: pointer;
+    }
+
+    @media (max-width: 900px) { .pdfPanel { display: none; } }
   </style>
 </head>
 <body>
@@ -57,13 +91,14 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
+
+      <!-- カスタムマイクボタン -->
       <button id="custom-mic-btn" title="音声入力">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
           <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
-      <div id="mic-toast">🎤 聞いています...</div>
     </div>
     <aside class="pdfPanel">
       <div class="pdfPanelInner">
@@ -74,6 +109,18 @@
         <iframe id="pdfFrame" class="pdfFrame"></iframe>
       </div>
     </aside>
+  </div>
+
+  <!-- 音声認識オーバーレイ -->
+  <div id="voice-overlay">
+    <div id="voice-box">
+      <div id="voice-status"><span id="voice-dot"></span><span id="voice-status-text">聞いています…</span></div>
+      <div id="voice-text" contenteditable="true" data-placeholder="音声認識中..."></div>
+      <div id="voice-actions">
+        <button id="voice-cancel-btn" onclick="cancelVoice()">キャンセル</button>
+        <button id="voice-send-btn" disabled onclick="sendVoiceText()">送信</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -88,176 +135,251 @@
       } else {
         const frame = document.getElementById("pdfFrame");
         frame.src = "about:blank";
-        setTimeout(() => {
-          frame.src = url;
-          document.body.classList.add("pdf-open");
-        }, 50);
+        setTimeout(() => { frame.src = url; document.body.classList.add("pdf-open"); }, 50);
       }
     }
-
     function closePdfPanel() {
       document.body.classList.remove("pdf-open");
       document.getElementById("pdfFrame").src = "";
     }
 
     /* =====================================================
-       音声認識ロジック（修正版）
+       Shadow DOM ユーティリティ
     ===================================================== */
-    (function setupSpeechRecognition() {
-      const micBtn  = document.getElementById('custom-mic-btn');
-      const toast   = document.getElementById('mic-toast');
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    /** Shadow DOM を再帰的に探索して最初にマッチした要素を返す */
+    function deepQuery(root, selector) {
+      const el = root.querySelector(selector);
+      if (el) return el;
+      for (const node of root.querySelectorAll('*')) {
+        if (node.shadowRoot) {
+          const found = deepQuery(node.shadowRoot, selector);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
 
-      /* ブラウザ非対応時 */
-      if (!SpeechRecognition) {
-        micBtn.disabled = true;
-        micBtn.title = 'このブラウザは音声入力に対応していません（Chrome推奨）';
+    /** Shadow DOM 内の入力要素（textarea / input / contenteditable）を全種類探す */
+    function findInputElement(searchRoot) {
+      const selectors = [
+        'textarea',
+        'input[type="text"]',
+        '[contenteditable="true"]',
+        '[role="textbox"]',
+        '[contenteditable]',
+        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"])'
+      ];
+      for (const sel of selectors) {
+        const el = deepQuery(searchRoot, sel);
+        if (el) return el;
+      }
+      return null;
+    }
+
+    /** React/LitElement 対応のネイティブ値セット */
+    function setNativeValue(input, value) {
+      if (input.isContentEditable) {
+        // contenteditable の場合
+        input.focus();
+        input.textContent = value;
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: value }));
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      } else {
+        // input / textarea の場合
+        const proto = (input.tagName === 'TEXTAREA')
+          ? window.HTMLTextAreaElement.prototype
+          : window.HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (setter) setter.call(input, value); else input.value = value;
+        input.dispatchEvent(new Event('input',  { bubbles: true, composed: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      }
+    }
+
+    /** 送信ボタンを探してクリック、なければ Enter キー送出 */
+    function submitMessage(searchRoot, inputEl) {
+      const btnSelectors = [
+        'button[type="submit"]',
+        'button[aria-label*="送信"]', 'button[aria-label*="Send"]', 'button[aria-label*="send"]',
+        '[role="button"][aria-label*="送信"]', '[role="button"][aria-label*="Send"]',
+        'button[title*="送信"]', 'button[title*="Send"]',
+      ];
+      for (const sel of btnSelectors) {
+        const btn = deepQuery(searchRoot, sel);
+        if (btn && !btn.disabled) { btn.click(); return; }
+      }
+      // Enter キーでフォールバック
+      ['keydown', 'keypress', 'keyup'].forEach(type =>
+        inputEl.dispatchEvent(new KeyboardEvent(type, {
+          key: 'Enter', code: 'Enter', keyCode: 13,
+          bubbles: true, composed: true, cancelable: true
+        }))
+      );
+    }
+
+    /* =====================================================
+       音声オーバーレイ制御
+    ===================================================== */
+    const voiceOverlay    = document.getElementById('voice-overlay');
+    const voiceTextEl     = document.getElementById('voice-text');
+    const voiceSendBtn    = document.getElementById('voice-send-btn');
+    const voiceStatusText = document.getElementById('voice-status-text');
+    const voiceDot        = document.getElementById('voice-dot');
+
+    function openVoiceOverlay() {
+      voiceTextEl.textContent = '';
+      voiceSendBtn.disabled = true;
+      voiceStatusText.textContent = '聞いています…';
+      voiceDot.style.display = 'block';
+      voiceOverlay.classList.add('active');
+    }
+
+    function cancelVoice() {
+      voiceOverlay.classList.remove('active');
+      if (window._recognition) { try { window._recognition.stop(); } catch(e){} }
+    }
+
+    function sendVoiceText() {
+      const text = voiceTextEl.textContent.trim();
+      if (!text) return;
+      voiceOverlay.classList.remove('active');
+      injectTextAndSend(text);
+    }
+
+    /** 認識テキストをチャット入力欄に注入して送信 */
+    function injectTextAndSend(text) {
+      const messenger   = document.getElementById('messenger');
+      const searchRoot  = messenger?.shadowRoot ?? document;
+      const inputEl     = findInputElement(searchRoot);
+
+      if (!inputEl) {
+        // フォールバック：クリップボードにコピーしてユーザーに通知
+        navigator.clipboard?.writeText(text).catch(() => {});
+        alert('入力欄が見つかりませんでした。\n認識テキスト：\n' + text);
         return;
       }
 
-      const recognition = new SpeechRecognition();
-      recognition.lang           = 'ja-JP';
-      recognition.continuous     = false;   // 1発話ごとに停止
-      recognition.interimResults = false;   // 確定結果のみ
-      recognition.maxAlternatives = 1;
+      setNativeValue(inputEl, text);
+      inputEl.focus();
+      setTimeout(() => submitMessage(searchRoot, inputEl), 300);
+    }
 
-      let isRecording = false;
+    /* =====================================================
+       音声認識ロジック（完全修正版）
+    ===================================================== */
+    (function setupSpeechRecognition() {
+      const micBtn = document.getElementById('custom-mic-btn');
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      /* トースト表示ヘルパー */
-      function showToast(msg, durationMs) {
-        toast.textContent = msg;
-        toast.classList.add('show');
-        if (durationMs) setTimeout(() => toast.classList.remove('show'), durationMs);
+      if (!SR) {
+        micBtn.disabled = true;
+        micBtn.title = '音声入力非対応のブラウザです（Chrome推奨）';
+        return;
       }
 
-      /* ── ボタン押下 ── */
+      const recognition = new SR();
+      window._recognition = recognition;   // cancelVoice() からアクセスできるよう公開
+
+      /* ─ 設定 ─ */
+      recognition.lang            = 'ja-JP';
+      recognition.continuous      = false;
+      recognition.interimResults  = true;   // ★ モバイルでも途中結果を受け取る
+      recognition.maxAlternatives = 1;
+
+      let isRecording  = false;
+      let finalText    = '';
+      let interimText  = '';
+
+      /* ─ ボタン押下 ─ */
       micBtn.addEventListener('click', () => {
         if (isRecording) {
           recognition.stop();
         } else {
+          finalText   = '';
+          interimText = '';
           try {
             recognition.start();
           } catch (e) {
-            console.error('recognition.start error:', e);
+            console.error('start error:', e);
+            isRecording = false;
           }
         }
       });
 
-      /* ── 開始 ── */
+      /* ─ 開始 ─ */
       recognition.onstart = () => {
         isRecording = true;
         micBtn.classList.add('recording');
-        showToast('🎤 聞いています...');
+        openVoiceOverlay();
       };
 
-      /* ── 終了（結果あり・なし問わず） ── */
+      /* ─ 途中結果 & 確定結果（★ 修正：interimResults 対応）─ */
+      recognition.onresult = (event) => {
+        interimText = '';
+        finalText   = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalText += result[0].transcript;
+          } else {
+            interimText += result[0].transcript;
+          }
+        }
+
+        const displayText = finalText || interimText;
+
+        // オーバーレイのテキストをリアルタイム更新
+        voiceTextEl.textContent = displayText;
+        voiceSendBtn.disabled   = !displayText.trim();
+
+        if (finalText) {
+          voiceStatusText.textContent = '認識完了 — 内容を確認して送信';
+          voiceDot.style.display = 'none';
+        }
+      };
+
+      /* ─ 終了 ─ */
       recognition.onend = () => {
         isRecording = false;
         micBtn.classList.remove('recording');
-        toast.classList.remove('show');
+
+        const recognized = (finalText || interimText).trim();
+
+        if (recognized) {
+          // テキストが取れた → 自動送信（確認オーバーレイに0.6秒表示してから送信）
+          voiceTextEl.textContent   = recognized;
+          voiceSendBtn.disabled     = false;
+          voiceStatusText.textContent = '✅ 送信します…';
+          voiceDot.style.display    = 'none';
+          setTimeout(() => {
+            voiceOverlay.classList.remove('active');
+            injectTextAndSend(recognized);
+          }, 600);
+        } else {
+          // テキストが取れなかった → オーバーレイを閉じる
+          voiceStatusText.textContent = '音声を検出できませんでした';
+          voiceDot.style.display = 'none';
+          setTimeout(() => voiceOverlay.classList.remove('active'), 1500);
+        }
       };
 
-      /* ── エラー処理（★修正①）── */
+      /* ─ エラー処理 ─ */
       recognition.onerror = (event) => {
         isRecording = false;
         micBtn.classList.remove('recording');
-        toast.classList.remove('show');
+        voiceOverlay.classList.remove('active');
 
-        const messages = {
-          'not-allowed'  : '⚠️ マイクの使用が許可されていません。\nブラウザのアドレスバー左のアイコンからマイクを許可してください。',
-          'no-speech'    : null,  // 無音は通知不要
-          'network'      : '⚠️ ネットワークエラーで音声認識できませんでした。',
+        const msgs = {
+          'not-allowed'  : 'マイクの使用が許可されていません。\nブラウザのアドレスバー左のアイコンからマイクを許可してください。',
+          'audio-capture': 'マイクが見つかりません。接続を確認してください。',
+          'network'      : '音声認識にネットワーク接続が必要です。接続を確認してください。',
+          'no-speech'    : null,
           'aborted'      : null,
-          'audio-capture': '⚠️ マイクが見つかりません。接続を確認してください。',
         };
-        const msg = messages[event.error];
+        const msg = msgs[event.error];
         if (msg) alert(msg);
         console.warn('[SpeechRecognition] error:', event.error);
-      };
-
-      /* ── 認識結果処理（★修正②③）── */
-      recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript.trim();
-        if (!text) return;
-
-        console.log('[SpeechRecognition] recognized:', text);
-        showToast('✅ ' + text, 2500);
-
-        /* Shadow DOM を再帰探索してテキストエリア/インプットを取得 */
-        function deepQuery(root, selector) {
-          let el = root.querySelector(selector);
-          if (el) return el;
-          for (const node of root.querySelectorAll('*')) {
-            if (node.shadowRoot) {
-              el = deepQuery(node.shadowRoot, selector);
-              if (el) return el;
-            }
-          }
-          return null;
-        }
-
-        /* ★修正②: React/LitElement 対応のネイティブ値セット */
-        function setNativeValue(input, value) {
-          const proto = (input.tagName === 'TEXTAREA')
-            ? window.HTMLTextAreaElement.prototype
-            : window.HTMLInputElement.prototype;
-          const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-          if (setter) {
-            setter.call(input, value);
-          } else {
-            input.value = value;
-          }
-          /* フレームワークが検知できるようイベントを複数発火 */
-          ['input', 'change'].forEach(type =>
-            input.dispatchEvent(new Event(type, { bubbles: true, composed: true }))
-          );
-        }
-
-        /* ★修正③: テキストセット後に送信ボタンを自動クリック */
-        function submitMessage(root, inputEl) {
-          /* 送信ボタン候補セレクタ（chat-messenger の構造に合わせて幅広く指定） */
-          const btnSelectors = [
-            'button[type="submit"]',
-            'button[aria-label*="送信"]',
-            'button[aria-label*="Send"]',
-            'button[aria-label*="send"]',
-            'button[title*="送信"]',
-            '[role="button"][aria-label*="送信"]',
-            '[role="button"][aria-label*="Send"]',
-          ];
-          for (const sel of btnSelectors) {
-            const btn = deepQuery(root, sel);
-            if (btn && !btn.disabled) {
-              btn.click();
-              return;
-            }
-          }
-          /* 送信ボタンが見つからない場合は Enter キーをシミュレート */
-          ['keydown', 'keypress', 'keyup'].forEach(type =>
-            inputEl.dispatchEvent(new KeyboardEvent(type, {
-              key: 'Enter', code: 'Enter', keyCode: 13,
-              bubbles: true, composed: true, cancelable: true
-            }))
-          );
-        }
-
-        /* メッセンジャーの Shadow DOM からフォームを探して送信 */
-        const messengerEl = document.getElementById('messenger');
-        const searchRoot  = messengerEl?.shadowRoot ?? document;
-
-        const inputEl = deepQuery(
-          searchRoot,
-          'textarea, input[type="text"], input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"])'
-        );
-
-        if (inputEl) {
-          setNativeValue(inputEl, text);
-          inputEl.focus();
-          /* 少し待ってからフレームワーク状態が確定した後に送信 */
-          setTimeout(() => submitMessage(searchRoot, inputEl), 250);
-        } else {
-          console.warn('[SpeechRecognition] 入力フィールドが見つかりませんでした');
-        }
       };
     })();
 
@@ -289,4 +411,3 @@
   </script>
 </body>
 </html>
-

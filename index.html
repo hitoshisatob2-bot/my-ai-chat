@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Voice Final</title>
+  <title>kubota WSM AI - Final Voice</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
@@ -13,6 +13,14 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
     
+    /* 初期有効化ボタン（これが重要） */
+    #init-voice-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.9); z-index: 999999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .start-btn { padding: 20px 40px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
@@ -21,19 +29,20 @@
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; }
     
-    #speech-control {
-      position: fixed; bottom: 70px; right: 15px; z-index: 2147483647;
-      display: none; align-items: center; gap: 8px;
-    }
+    #speech-control { position: fixed; bottom: 70px; right: 15px; z-index: 2147483647; display: none; }
     .voice-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; cursor: pointer; }
 
     .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
-    .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
     @media (max-width: 900px) { .pdfPanel { display: none; } }
   </style>
 </head>
 <body>
+  <div id="init-voice-overlay">
+    <button class="start-btn" onclick="activateVoice()">AIチャットを開始（音声を有効化）</button>
+    <p style="margin-top:15px; color:#666;">※ブラウザの音声制限を解除するために必要です</p>
+  </div>
+
   <div class="app">
     <div class="chatArea">
       <chat-messenger id="messenger" allow-citations="true" style="width:100%; height:100%;">
@@ -41,31 +50,40 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      <button id="custom-mic-btn">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-        </svg>
-      </button>
+      <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
       <div id="speech-control"><button id="stop-speech-btn" class="voice-btn">読み上げ停止 ■</button></div>
     </div>
-    <aside class="pdfPanel"><div class="pdfPanelInner"><div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;"><span style="font-size:12px;">引用元</span><button onclick="document.body.classList.remove('pdf-open')">閉じる</button></div><iframe id="pdfFrame" style="flex:1; border:0;"></iframe></div></aside>
+    <aside class="pdfPanel"><div style="height:100%; display:flex; flex-direction:column;"><div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;"><span style="font-size:12px;">引用元</span><button onclick="document.body.classList.remove('pdf-open')">閉じる</button></div><iframe id="pdfFrame" style="flex:1; border:0;"></iframe></div></aside>
   </div>
 
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-    /* --- 読み上げ機能 --- */
-    function speakText(text) {
-      if (!text || text.length < 5) return;
-      window.speechSynthesis.cancel();
-      // 読み上げノイズ（引用番号、記号、改行）を掃除
-      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').replace(/\n/g, '。').trim();
+    let isVoiceActive = false;
+    let spokenTexts = new Set(); // 読み上げ済みテキストの記録
+
+    // 1. 音声の有効化（ユーザー操作）
+    function activateVoice() {
+      const dummy = new SpeechSynthesisUtterance("読み上げを有効にしました");
+      dummy.volume = 0; // 無音で一度流してロックを解除
+      window.speechSynthesis.speak(dummy);
+      isVoiceActive = true;
+      document.getElementById('init-voice-overlay').style.display = 'none';
+    }
+
+    // 2. 読み上げ実行
+    function speak(text) {
+      if (!isVoiceActive || !text || text.length < 5) return;
+      
+      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').trim();
+      if (spokenTexts.has(cleanText)) return;
+      spokenTexts.add(cleanText);
 
       const uttr = new SpeechSynthesisUtterance(cleanText);
       uttr.lang = 'ja-JP';
-      uttr.rate = 1.2;
-      uttr.onstart = () => { document.getElementById('speech-control').style.display = 'flex'; };
-      uttr.onend = () => { document.getElementById('speech-control').style.display = 'none'; };
+      uttr.rate = 1.1;
+      uttr.onstart = () => { document.getElementById('speech-control').style.display = 'block'; };
+      uttr.onend = () => { if(!window.speechSynthesis.speaking) document.getElementById('speech-control').style.display = 'none'; };
       window.speechSynthesis.speak(uttr);
     }
 
@@ -74,54 +92,42 @@
       document.getElementById('speech-control').style.display = 'none';
     });
 
-    /* --- 回答検知ロジック（ポーリング＋Shadow DOM全スキャン） --- */
-    function startResponseObserver() {
+    // 3. 監視ロジック（ポーリング）
+    function startMonitoring() {
       const messenger = document.getElementById('messenger');
-      let lastTotalTextLength = 0;
-
-      // MutationObserverよりも確実な「定期巡回（ポーリング）」を併用
+      
       setInterval(() => {
         if (!messenger.shadowRoot) return;
 
-        // Shadow DOM内のテキストをすべて結合
-        const walker = document.createTreeWalker(messenger.shadowRoot, NodeFilter.SHOW_TEXT, null, false);
-        let currentFullText = "";
-        let node;
-        while(node = walker.nextNode()) {
-          // AIの回答エリアに近いテキスト（親の属性などで判定）
-          if (node.parentElement && (node.parentElement.closest('[role="listitem"]') || node.parentElement.closest('.agent'))) {
-            currentFullText += node.textContent;
+        // AIの回答エリアを特定（セレクタを複数候補で探す）
+        const agents = messenger.shadowRoot.querySelectorAll('.message.agent, .agent-message, [role="listitem"]');
+        if (agents.length > 0) {
+          const latestAgent = agents[agents.length - 1];
+          const text = latestAgent.innerText;
+
+          // テキストが存在し、かつ「...」などが含まれていない「確定」状態を待つ
+          if (text && text.length > 10 && !text.includes('...') && !latestAgent.dataset.read) {
+            // 文字がこれ以上増えないか少し待機して確定
+            clearTimeout(latestAgent.timer);
+            latestAgent.timer = setTimeout(() => {
+              speak(latestAgent.innerText);
+              latestAgent.dataset.read = "true";
+            }, 1500);
           }
         }
-
-        // テキストが増えていて、かつ「...（入力中）」が出ていない時に読み上げ
-        // 「...」の有無はコンポーネント内の .typing クラス等で判定可能だが、
-        // 今回は「テキストの更新が3秒止まったら確定」とみなすロジックを採用
-        if (currentFullText.length > lastTotalTextLength) {
-          lastTotalTextLength = currentFullText.length;
-          
-          clearTimeout(window.speechTimer);
-          window.speechTimer = setTimeout(() => {
-             // 最後のメッセージ（最新の回答）だけを抽出して読み上げ
-             const messages = currentFullText.split(/\n\n|(?=ユーザー:)/); 
-             const latestResponse = messages[messages.length - 1];
-             speakText(latestResponse);
-          }, 2500); // 回答が完全に終わるのを待つ
-        }
-      }, 1000); // 1秒ごとにチェック
+      }, 1000);
     }
 
-    /* --- 初期化 --- */
+    /* 初期化 & PDF & マイク (既存ロジックを統合) */
     window.addEventListener("DOMContentLoaded", () => {
       const checkReady = setInterval(() => {
-        const messenger = document.getElementById('messenger');
-        if (window.chatSdk && messenger && messenger.shadowRoot) {
+        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
           chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
             deploymentName: DEPLOYMENT,
             tokenBroker: { enableTokenBroker: true },
             pdfPreview: { enablePdfPreview: true }
           }));
-          startResponseObserver();
+          startMonitoring();
           clearInterval(checkReady);
         }
       }, 1000);
@@ -137,7 +143,7 @@
       }, true);
     });
 
-    /* --- 音声入力 --- */
+    // マイクボタン（既存）
     const micBtn = document.getElementById('custom-mic-btn');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -147,21 +153,4 @@
       recognition.onstart = () => micBtn.classList.add('recording');
       recognition.onend = () => micBtn.classList.remove('recording');
       recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        const findAndFill = (root) => {
-          const input = root.querySelector('textarea, input:not([type="hidden"])');
-          if (input) {
-            input.value = text;
-            input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-            return true;
-          }
-          const shadows = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
-          for (let s of shadows) { if (findAndFill(s.shadowRoot)) return true; }
-          return false;
-        };
-        findAndFill(document.getElementById('messenger').shadowRoot);
-      };
-    }
-  </script>
-</body>
-</html>
+        const text = event.

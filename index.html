@@ -52,4 +52,89 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5
+      <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
+      <div id="speech-control"><button onclick="window.speechSynthesis.cancel()" class="voice-btn">停止 ■</button></div>
+    </div>
+    <aside class="pdfPanel"><div style="height:100%; display:flex; flex-direction:column;"><div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;"><span style="font-size:12px;">引用元</span><button onclick="document.body.classList.remove('pdf-open')">閉じる</button></div><iframe id="pdfFrame" style="flex:1; border:0;"></iframe></div></aside>
+  </div>
+
+  <script>
+    const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
+
+    let voiceEnabled = false;
+
+    // ボタンクリックで即座に実行される関数
+    function activateAndStart(btnElement) {
+      console.log("Button clicked!");
+      // 1. オーバーレイを消す
+      document.getElementById('init-voice-overlay').style.display = 'none';
+      
+      // 2. 音声エンジンのロック解除（ブラウザへの「音を出して良い」という合図）
+      const ss = window.speechSynthesis;
+      const uttr = new SpeechSynthesisUtterance("読み上げを開始します");
+      uttr.lang = 'ja-JP';
+      ss.speak(uttr);
+      
+      voiceEnabled = true;
+      startMonitoring(); // 監視開始
+    }
+
+    function speak(text) {
+      if (!voiceEnabled || !text) return;
+      window.speechSynthesis.cancel();
+      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').trim();
+      const uttr = new SpeechSynthesisUtterance(cleanText);
+      uttr.lang = 'ja-JP';
+      uttr.onstart = () => document.getElementById('speech-control').style.display = 'block';
+      uttr.onend = () => document.getElementById('speech-control').style.display = 'none';
+      window.speechSynthesis.speak(uttr);
+    }
+
+    function startMonitoring() {
+      const messenger = document.getElementById('messenger');
+      setInterval(() => {
+        if (!messenger || !messenger.shadowRoot) return;
+        const agents = messenger.shadowRoot.querySelectorAll('.message.agent, [role="listitem"]');
+        if (agents.length > 0) {
+          const latest = agents[agents.length - 1];
+          // 「...」がない＝回答完了の簡易判定
+          if (latest.innerText.length > 10 && !latest.innerText.includes('...') && !latest.dataset.read) {
+            latest.dataset.read = "true";
+            speak(latest.innerText);
+          }
+        }
+      }, 1500);
+    }
+
+    /* SDK初期化 */
+    window.addEventListener("DOMContentLoaded", () => {
+      const t = setInterval(() => {
+        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
+          chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
+            deploymentName: DEPLOYMENT,
+            tokenBroker: { enableTokenBroker: true },
+            pdfPreview: { enablePdfPreview: true }
+          }));
+          clearInterval(t);
+        }
+      }, 1000);
+    });
+
+    // マイク機能（最小限）
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      document.getElementById('custom-mic-btn').onclick = () => { try { recognition.start(); } catch(e) { recognition.stop(); } };
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        const input = document.getElementById('messenger').shadowRoot.querySelector('textarea, input');
+        if (input) {
+          input.value = text;
+          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        }
+      };
+    }
+  </script>
+</body>
+</html>

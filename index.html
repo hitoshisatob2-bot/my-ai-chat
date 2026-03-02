@@ -3,40 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Voice Pro</title>
+  <title>kubota WSM AI - Voice Final Fix</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
   <style>
     :root { --panel-width: min(46vw, 920px); --panel-min: 360px; --divider: rgba(0,0,0,.10); --header-h: 48px; }
-    html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; font-family: sans-serif; }
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
     
-    /* 起動オーバーレイ（確実に反応するように修正） */
+    /* 起動ボタンを画面中央に大きく配置 */
     #init-voice-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #ffffff; z-index: 999999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .start-btn { 
-      padding: 24px 48px; font-size: 20px; font-weight: bold; cursor: pointer; 
-      background: #007bff; color: white; border: none; border-radius: 50px; 
-      box-shadow: 0 10px 20px rgba(0,123,255,0.3); transition: transform 0.2s;
+      padding: 30px 60px; font-size: 24px; font-weight: bold; cursor: pointer; 
+      background: #ff4b4b; color: white; border: none; border-radius: 15px; 
+      box-shadow: 0 10px 30px rgba(255,75,75,0.4);
     }
-    .start-btn:active { transform: scale(0.95); }
 
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
       border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
-    #custom-mic-btn.recording { background: #ff4b4b; color: white; }
-    
     #speech-control { position: fixed; bottom: 70px; right: 15px; z-index: 2147483647; display: none; }
-    .voice-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; cursor: pointer; }
-
+    .voice-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; }
     .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
   </style>
@@ -44,8 +39,10 @@
 <body>
 
   <div id="init-voice-overlay">
-    <button id="start-node" class="start-btn">AIチャットを開始する</button>
-    <p style="margin-top:20px; color:#555;">クリックすると音声機能が有効になります</p>
+    <button class="start-btn" onclick="activateAndStart(this)">
+      音声を有効にして開始
+    </button>
+    <p style="margin-top:20px; color:#333;">※ボタンを押すとチャット画面に進みます</p>
   </div>
 
   <div class="app">
@@ -55,7 +52,4 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
-      <div id="speech-control"><button id="stop-speech-btn" class="voice-btn">読み上げ停止 ■</button></div>
-    </div>
-    <aside class="pdfPanel"><div style="height:100%; display:flex; flex-direction:column;"><div style="height:48px; display:flex; align-items:center; padding
+      <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5

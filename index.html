@@ -20,7 +20,6 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
 
-    /* PDFパネル（スマホでは全画面スライド） */
     .pdfPanel {
       width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider);
       background: #fff; overflow: hidden; transition: all 300ms ease;
@@ -31,7 +30,6 @@
     .pdfTitle { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pdfFrame { flex: 1; border: 0; }
 
-    /* 【改良】自前マイクボタン（スマホで見やすい位置に調整） */
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
@@ -45,7 +43,7 @@
       .pdfPanel { position: fixed; right: 0; top: 0; height: 100vh; z-index: 99999; transform: translateX(100%); }
       body.pdf-open .pdfPanel { transform: translateX(0); width: 100vw; }
       .pdfPanelInner { width: 100vw; }
-      #custom-mic-btn { bottom: 12px; right: 55px; } /* スマホの入力欄に合わせ調整 */
+      #custom-mic-btn { bottom: 12px; right: 55px; }
     }
   </style>
 </head>
@@ -57,64 +55,188 @@
            <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      <button id="custom-mic-btn">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      <button id="custom-mic-btn" title="音声入力">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
       </button>
     </div>
-    <aside class="pdfPanel"><div class="pdfPanelInner"><div class="pdfHeader"><div id="pdfTitle" class="pdfTitle"></div><button onclick="closePdfPanel()">閉じる</button></div><iframe id="pdfFrame" class="pdfFrame"></iframe></div></aside>
+    <aside class="pdfPanel">
+      <div class="pdfPanelInner">
+        <div class="pdfHeader">
+          <div id="pdfTitle" class="pdfTitle"></div>
+          <button onclick="closePdfPanel()">閉じる</button>
+        </div>
+        <iframe id="pdfFrame" class="pdfFrame"></iframe>
+      </div>
+    </aside>
   </div>
 
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-    // PDFパネル操作
-    function openPdfInRightPanel(url){
+    // ── PDFパネル操作 ──────────────────────────────────────────
+    function openPdfInRightPanel(url) {
       document.getElementById("pdfTitle").textContent = "引用元PDF";
       document.getElementById("pdfFrame").src = url;
       document.body.classList.add("pdf-open");
     }
-    function closePdfPanel(){ document.body.classList.remove("pdf-open"); document.getElementById("pdfFrame").src = ""; }
+    function closePdfPanel() {
+      document.body.classList.remove("pdf-open");
+      document.getElementById("pdfFrame").src = "";
+    }
 
-    // 【スマホ対応】音声認識エンジン
+    // ── ▼▼▼ 修正①: Shadow DOM を再帰的に検索するユーティリティ ▼▼▼ ──
+    /**
+     * 入れ子になった Shadow DOM も含めて selector に一致する最初の要素を返す
+     * @param {ShadowRoot|Document|Element} root - 検索起点
+     * @param {string} selector - CSSセレクター
+     * @returns {Element|null}
+     */
+    function deepQuerySelector(root, selector) {
+      if (!root) return null;
+
+      // 現在の root 直下で検索
+      const found = root.querySelector(selector);
+      if (found) return found;
+
+      // 子要素の shadowRoot を再帰的に検索
+      const all = root.querySelectorAll('*');
+      for (const el of all) {
+        if (el.shadowRoot) {
+          const result = deepQuerySelector(el.shadowRoot, selector);
+          if (result) return result;
+        }
+      }
+      return null;
+    }
+
+    // ── ▼▼▼ 修正②: フレームワーク対応の値セット関数 ▼▼▼ ──
+    /**
+     * React / LitElement 等のフレームワーク管理下の入力欄にも
+     * 確実に値をセットするため、ネイティブの setter を使用する
+     * @param {HTMLInputElement|HTMLTextAreaElement} input
+     * @param {string} value
+     */
+    function setNativeValue(input, value) {
+      const proto = input.tagName.toLowerCase() === 'textarea'
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+      if (setter) {
+        setter.call(input, value);
+      } else {
+        input.value = value;
+      }
+      // フレームワークの変更検知を発火
+      input.dispatchEvent(new Event('input',  { bubbles: true, composed: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    }
+
+    // ── 音声認識セットアップ ──────────────────────────────────
     const micBtn = document.getElementById('custom-mic-btn');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    if (!SpeechRecognition) {
+      // 非対応ブラウザではボタンを無効化
+      micBtn.title = '音声入力非対応ブラウザです（Chrome/Edgeを使用してください）';
+      micBtn.style.opacity = '0.4';
+      micBtn.disabled = true;
+    } else {
       const recognition = new SpeechRecognition();
-      recognition.lang = 'ja-JP';
-      recognition.interimResults = false;
-      recognition.continuous = false;
+      recognition.lang            = 'ja-JP';
+      recognition.interimResults  = false;
+      recognition.continuous      = false;
+      recognition.maxAlternatives = 1;
 
       let isRecording = false;
 
+      // ── マイクボタン押下 ──
       micBtn.addEventListener('click', () => {
         if (!isRecording) {
-          try {
-            recognition.start();
-          } catch (e) { console.error(e); }
+          try { recognition.start(); }
+          catch (e) { console.warn('recognition.start() error:', e); }
         } else {
           recognition.stop();
         }
       });
 
-      recognition.onstart = () => { isRecording = true; micBtn.classList.add('recording'); };
-      recognition.onend = () => { isRecording = false; micBtn.classList.remove('recording'); };
-      recognition.onerror = (e) => { alert("マイクエラー: " + e.error + "\nブラウザの設定でマイクを許可してください。"); };
+      // ── 録音開始 ──
+      recognition.onstart = () => {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        console.log('[STT] 録音開始');
+      };
 
+      // ── 録音終了（結果有無に関わらず） ──
+      recognition.onend = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        console.log('[STT] 録音終了');
+      };
+
+      // ── ▼▼▼ 修正③: onresult — Shadow DOM 再帰検索 + native setter ▼▼▼ ──
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        const messenger = document.getElementById("messenger");
-        // Shadow DOMの奥深くにある入力欄を探す
-        const input = messenger.shadowRoot.querySelector('textarea') || messenger.shadowRoot.querySelector('input');
+        console.log('[STT] 認識テキスト:', transcript);
+
+        const messenger = document.getElementById('messenger');
+        let input = null;
+
+        // (A) messenger の shadowRoot から再帰検索
+        if (messenger.shadowRoot) {
+          input = deepQuerySelector(messenger.shadowRoot, 'textarea')
+               || deepQuerySelector(messenger.shadowRoot, 'input[type="text"]')
+               || deepQuerySelector(messenger.shadowRoot, 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
+        }
+
+        // (B) 見つかった場合: フレームワーク対応で値をセット
         if (input) {
-          input.value = transcript;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
+          setNativeValue(input, transcript);
           input.focus();
+          console.log('[STT] 入力欄へセット完了:', input.tagName);
+
+        // (C) 見つからない場合: クリップボード経由のフォールバック
+        } else {
+          console.warn('[STT] 入力欄が見つかりませんでした。クリップボードにコピーします。');
+          navigator.clipboard.writeText(transcript)
+            .then(() => alert('音声認識結果:\n「' + transcript + '」\n\nクリップボードにコピーしました。\n入力欄に貼り付けてください（Ctrl+V / ⌘+V）。'))
+            .catch(() => alert('音声認識結果:\n「' + transcript + '」\n\n手動で入力欄に入力してください。'));
+        }
+      };
+
+      // ── ▼▼▼ 修正④: エラー種別を細分化して適切に対処 ▼▼▼ ──
+      recognition.onerror = (event) => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        console.warn('[STT] エラー:', event.error, event.message);
+
+        switch (event.error) {
+          case 'no-speech':
+            // 発話なしは通常エラーではないため alert 不要
+            console.log('[STT] 発話が検出されませんでした（タイムアウト）');
+            break;
+          case 'not-allowed':
+          case 'permission-denied':
+            alert('マイクへのアクセスが拒否されています。\nブラウザのアドレスバー横のアイコンからマイクの許可を設定してください。');
+            break;
+          case 'network':
+            alert('音声認識にはインターネット接続が必要です。\nネットワーク接続を確認してください。');
+            break;
+          case 'audio-capture':
+            alert('マイクが見つかりません。\nデバイスにマイクが接続されているか確認してください。');
+            break;
+          case 'aborted':
+            // 手動停止は無視
+            break;
+          default:
+            alert('音声認識エラー: ' + event.error);
         }
       };
     }
 
-    // 初期化
+    // ── 初期化 ──────────────────────────────────────────────
     window.addEventListener("DOMContentLoaded", () => {
       const t = setInterval(() => {
         if (window.chatSdk) {
@@ -131,7 +253,8 @@
         const path = e.composedPath();
         const a = path.find(el => el.tagName === "A");
         if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
-          e.preventDefault(); e.stopImmediatePropagation();
+          e.preventDefault();
+          e.stopImmediatePropagation();
           openPdfInRightPanel(a.href);
         }
       }, true);

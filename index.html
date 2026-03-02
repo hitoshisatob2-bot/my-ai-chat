@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI.c - Final Pro</title>
+  <title>kubota WSM AI - Final Pro</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -59,3 +59,202 @@
 
       <button id="custom-mic-btn" title="音声入力">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c1.66 0 3 1.34 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+      </button>
+
+      <div id="speech-control">
+        <button class="stop-btn" onclick="stopSpeaking()">読み上げ停止 ■</button>
+      </div>
+    </div>
+
+    <aside class="pdfPanel">
+      <div style="height:100%; display:flex; flex-direction:column;">
+        <div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;">
+          <span style="font-size:12px; font-weight:bold;">引用元</span>
+          <button onclick="document.body.classList.remove('pdf-open')" style="cursor:pointer; border:none; background:none;">✕ 閉じる</button>
+        </div>
+        <iframe id="pdfFrame" style="flex:1; border:0;"></iframe>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
+
+    let voiceEnabled = false;
+
+    function activateAndStart() {
+      document.getElementById('init-voice-overlay').style.display = 'none';
+      voiceEnabled = true;
+
+      const uttr = new SpeechSynthesisUtterance("準備ができました。");
+      uttr.lang = 'ja-JP';
+      window.speechSynthesis.speak(uttr);
+
+      waitForShadowDOM();
+    }
+
+    function speak(text) {
+      if (!voiceEnabled || !text) return;
+
+      window.speechSynthesis.cancel();
+
+      const cleanText = text
+        .replace(/\[\d+\]/g, '')
+        .replace(/[*#_]/g, '')
+        .replace(/\n/g, '。')
+        .trim();
+
+      if (cleanText.length < 2) return;
+
+      const uttr = new SpeechSynthesisUtterance(cleanText);
+      uttr.lang = 'ja-JP';
+      uttr.rate = 1.1;
+
+      uttr.onstart = () => {
+        document.getElementById('speech-control').style.display = 'block';
+      };
+      uttr.onend = () => {
+        document.getElementById('speech-control').style.display = 'none';
+      };
+
+      window.speechSynthesis.speak(uttr);
+    }
+
+    function stopSpeaking() {
+      window.speechSynthesis.cancel();
+      document.getElementById('speech-control').style.display = 'none';
+    }
+
+    /* -----------------------------
+       Shadow DOM が構築されるまで待つ
+    ----------------------------- */
+    function waitForShadowDOM() {
+      const messenger = document.getElementById("messenger");
+
+      const timer = setInterval(() => {
+        if (messenger.shadowRoot) {
+          clearInterval(timer);
+          startObserver();
+        }
+      }, 300);
+    }
+
+    /* -----------------------------
+       Shadow DOM 全体を監視して AI の回答を検知
+    ----------------------------- */
+    function startObserver() {
+      const messenger = document.getElementById("messenger");
+      const shadow = messenger.shadowRoot;
+
+      const observer = new MutationObserver(() => {
+        const nodes = shadow.querySelectorAll("*");
+
+        nodes.forEach(node => {
+          if (!node.innerText) return;
+          if (node.dataset.spoken) return;
+
+          const text = node.innerText.trim();
+
+          const isAssistant =
+            text.length > 5 &&
+            !text.includes("送信") &&
+            !text.includes("Send") &&
+            !text.includes("引用元");
+
+          if (isAssistant) {
+            node.dataset.spoken = "true";
+            speak(text);
+          }
+        });
+      });
+
+      observer.observe(shadow, { childList: true, subtree: true });
+    }
+
+    /* -----------------------------
+       音声入力
+    ----------------------------- */
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+
+      const micBtn = document.getElementById('custom-mic-btn');
+
+      micBtn.onclick = () => {
+        if (micBtn.classList.contains('recording')) {
+          recognition.stop();
+        } else {
+          recognition.start();
+        }
+      };
+
+      recognition.onstart = () => micBtn.classList.add('recording');
+      recognition.onend = () => micBtn.classList.remove('recording');
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        fillInputAndSend(text);
+      };
+    }
+
+    function fillInputAndSend(text) {
+      const messenger = document.getElementById('messenger');
+
+      function search(root) {
+        const input = root.querySelector('textarea, input:not([type="hidden"])');
+        if (input) {
+          input.value = text;
+          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+          setTimeout(() => {
+            const sendBtn = root.querySelector('button[aria-label*="Send"], button[aria-label*="送信"], .send-button');
+            if (sendBtn) sendBtn.click();
+          }, 300);
+
+          return true;
+        }
+
+        const hosts = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
+        for (const h of hosts) {
+          if (search(h.shadowRoot)) return true;
+        }
+        return false;
+      }
+
+      search(messenger.shadowRoot);
+    }
+
+    /* -----------------------------
+       SDK 初期化
+    ----------------------------- */
+    window.addEventListener('DOMContentLoaded', () => {
+      const check = setInterval(() => {
+        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
+          chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
+            deploymentName: DEPLOYMENT,
+            tokenBroker: { enableTokenBroker: true },
+            pdfPreview: { enablePdfPreview: true }
+          }));
+          clearInterval(check);
+        }
+      }, 1000);
+
+      window.addEventListener('click', (e) => {
+        const path = e.composedPath();
+        const a = path.find(el => el.tagName === 'A');
+        if (a && a.href.includes('storage.googleapis.com')) {
+          e.preventDefault();
+          document.getElementById('pdfFrame').src = a.href;
+          document.body.classList.add('pdf-open');
+        }
+      }, true);
+    });
+  </script>
+
+</body>
+</html>

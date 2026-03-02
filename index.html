@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI.d - Final Pro</title>
+  <title>kubota WSM AI.e - Final Pro</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -85,9 +85,6 @@
 
     let voiceEnabled = false;
 
-    /* -----------------------------
-       ボタン押下 → 音声有効化
-    ----------------------------- */
     function activateAndStart() {
       document.getElementById('init-voice-overlay').style.display = 'none';
       voiceEnabled = true;
@@ -99,9 +96,6 @@
       waitForShadowDOM();
     }
 
-    /* -----------------------------
-       読み上げ処理
-    ----------------------------- */
     function speak(text) {
       if (!voiceEnabled || !text) return;
 
@@ -134,9 +128,6 @@
       document.getElementById('speech-control').style.display = 'none';
     }
 
-    /* -----------------------------
-       Shadow DOM が構築されるまで待つ
-    ----------------------------- */
     function waitForShadowDOM() {
       const messenger = document.getElementById("messenger");
 
@@ -148,41 +139,27 @@
       }, 300);
     }
 
-    /* -----------------------------
-       Shadow DOM 全体を監視して AI の回答を検知
-    ----------------------------- */
     function startObserver() {
       const messenger = document.getElementById("messenger");
       const shadow = messenger.shadowRoot;
 
       const observer = new MutationObserver(() => {
-        const nodes = shadow.querySelectorAll("*");
+        const mdBlocks = shadow.querySelectorAll("md-block");
 
-        nodes.forEach(node => {
-          if (!node.innerText) return;
-          if (node.dataset.spoken) return;
+        mdBlocks.forEach(block => {
+          if (block.dataset.spoken) return;
 
-          const text = node.innerText.trim();
+          const text = block.innerText.trim();
+          if (text.length < 5) return;
 
-          const isAssistant =
-            text.length > 5 &&
-            !text.includes("送信") &&
-            !text.includes("Send") &&
-            !text.includes("引用元");
-
-          if (isAssistant) {
-            node.dataset.spoken = "true";
-            speak(text);
-          }
+          block.dataset.spoken = "true";
+          speak(text);
         });
       });
 
       observer.observe(shadow, { childList: true, subtree: true });
     }
 
-    /* -----------------------------
-       音声入力
-    ----------------------------- */
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
@@ -235,9 +212,6 @@
       search(messenger.shadowRoot);
     }
 
-    /* -----------------------------
-       SDK 初期化
-    ----------------------------- */
     window.addEventListener('DOMContentLoaded', () => {
       const check = setInterval(() => {
         if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
@@ -264,4 +238,3 @@
 
 </body>
 </html>
-

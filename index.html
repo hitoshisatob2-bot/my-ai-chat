@@ -15,7 +15,6 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
 
-    /* PDFパネル：PCでのみ使用 */
     .pdfPanel { 
       width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); 
       background: #fff; overflow: hidden; transition: all 300ms ease; 
@@ -29,13 +28,22 @@
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
       border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: background 0.2s;
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; animation: pulse 1.2s infinite; }
+    #custom-mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.4); } 100% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
 
+    /* 音声認識トースト通知 */
+    #mic-toast {
+      position: fixed; bottom: 70px; right: 20px; z-index: 2147483647;
+      background: rgba(0,0,0,0.75); color: #fff; padding: 7px 14px;
+      border-radius: 20px; font-size: 13px; pointer-events: none;
+      opacity: 0; transition: opacity 0.3s; white-space: nowrap;
+    }
+    #mic-toast.show { opacity: 1; }
+
     @media (max-width: 900px) {
-      /* スマホではパネルを完全に非表示にし、別タブ遷移に切り替える */
       .pdfPanel { display: none; }
     }
   </style>
@@ -49,11 +57,13 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      <button id="custom-mic-btn">
+      <button id="custom-mic-btn" title="音声入力">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
+      <div id="mic-toast">🎤 聞いています...</div>
     </div>
     <aside class="pdfPanel">
       <div class="pdfPanelInner">
@@ -70,17 +80,12 @@
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
     /* =====================================================
-       核心修正：PCはパネル、スマホは別タブで開く
+       PDF パネル制御
     ===================================================== */
     function openPdfInRightPanel(url) {
-      const isMobile = window.innerWidth <= 900;
-
-      if (isMobile) {
-        // スマホの場合：サイズ制限を回避するため、ブラウザの別タブでPDFを開く
-        // これにより、スマホ標準の最強のPDFビューアーが立ち上がり、ページ指定も100%効きます
+      if (window.innerWidth <= 900) {
         window.open(url, '_blank');
       } else {
-        // PCの場合：今まで通り右パネルで表示
         const frame = document.getElementById("pdfFrame");
         frame.src = "about:blank";
         setTimeout(() => {
@@ -95,34 +100,170 @@
       document.getElementById("pdfFrame").src = "";
     }
 
-    /* 音声認識ロジック (維持) */
-    const micBtn = document.getElementById('custom-mic-btn');
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ja-JP';
-      micBtn.addEventListener('click', () => { try { recognition.start(); } catch(e) { recognition.stop(); } });
-      recognition.onstart = () => { micBtn.classList.add('recording'); };
-      recognition.onend = () => { micBtn.classList.remove('recording'); };
-      recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        const findAndFill = (root) => {
-          const input = root.querySelector('textarea, input:not([type="hidden"])');
-          if (input) {
-            input.value = text;
-            input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-            input.focus();
-            return true;
-          }
-          const shadows = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
-          for (let s of shadows) { if (findAndFill(s.shadowRoot)) return true; }
-          return false;
-        };
-        findAndFill(document.getElementById("messenger").shadowRoot);
-      };
-    }
+    /* =====================================================
+       音声認識ロジック（修正版）
+    ===================================================== */
+    (function setupSpeechRecognition() {
+      const micBtn  = document.getElementById('custom-mic-btn');
+      const toast   = document.getElementById('mic-toast');
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    /* 初期化 */
+      /* ブラウザ非対応時 */
+      if (!SpeechRecognition) {
+        micBtn.disabled = true;
+        micBtn.title = 'このブラウザは音声入力に対応していません（Chrome推奨）';
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang           = 'ja-JP';
+      recognition.continuous     = false;   // 1発話ごとに停止
+      recognition.interimResults = false;   // 確定結果のみ
+      recognition.maxAlternatives = 1;
+
+      let isRecording = false;
+
+      /* トースト表示ヘルパー */
+      function showToast(msg, durationMs) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        if (durationMs) setTimeout(() => toast.classList.remove('show'), durationMs);
+      }
+
+      /* ── ボタン押下 ── */
+      micBtn.addEventListener('click', () => {
+        if (isRecording) {
+          recognition.stop();
+        } else {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.error('recognition.start error:', e);
+          }
+        }
+      });
+
+      /* ── 開始 ── */
+      recognition.onstart = () => {
+        isRecording = true;
+        micBtn.classList.add('recording');
+        showToast('🎤 聞いています...');
+      };
+
+      /* ── 終了（結果あり・なし問わず） ── */
+      recognition.onend = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        toast.classList.remove('show');
+      };
+
+      /* ── エラー処理（★修正①）── */
+      recognition.onerror = (event) => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        toast.classList.remove('show');
+
+        const messages = {
+          'not-allowed'  : '⚠️ マイクの使用が許可されていません。\nブラウザのアドレスバー左のアイコンからマイクを許可してください。',
+          'no-speech'    : null,  // 無音は通知不要
+          'network'      : '⚠️ ネットワークエラーで音声認識できませんでした。',
+          'aborted'      : null,
+          'audio-capture': '⚠️ マイクが見つかりません。接続を確認してください。',
+        };
+        const msg = messages[event.error];
+        if (msg) alert(msg);
+        console.warn('[SpeechRecognition] error:', event.error);
+      };
+
+      /* ── 認識結果処理（★修正②③）── */
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript.trim();
+        if (!text) return;
+
+        console.log('[SpeechRecognition] recognized:', text);
+        showToast('✅ ' + text, 2500);
+
+        /* Shadow DOM を再帰探索してテキストエリア/インプットを取得 */
+        function deepQuery(root, selector) {
+          let el = root.querySelector(selector);
+          if (el) return el;
+          for (const node of root.querySelectorAll('*')) {
+            if (node.shadowRoot) {
+              el = deepQuery(node.shadowRoot, selector);
+              if (el) return el;
+            }
+          }
+          return null;
+        }
+
+        /* ★修正②: React/LitElement 対応のネイティブ値セット */
+        function setNativeValue(input, value) {
+          const proto = (input.tagName === 'TEXTAREA')
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+          if (setter) {
+            setter.call(input, value);
+          } else {
+            input.value = value;
+          }
+          /* フレームワークが検知できるようイベントを複数発火 */
+          ['input', 'change'].forEach(type =>
+            input.dispatchEvent(new Event(type, { bubbles: true, composed: true }))
+          );
+        }
+
+        /* ★修正③: テキストセット後に送信ボタンを自動クリック */
+        function submitMessage(root, inputEl) {
+          /* 送信ボタン候補セレクタ（chat-messenger の構造に合わせて幅広く指定） */
+          const btnSelectors = [
+            'button[type="submit"]',
+            'button[aria-label*="送信"]',
+            'button[aria-label*="Send"]',
+            'button[aria-label*="send"]',
+            'button[title*="送信"]',
+            '[role="button"][aria-label*="送信"]',
+            '[role="button"][aria-label*="Send"]',
+          ];
+          for (const sel of btnSelectors) {
+            const btn = deepQuery(root, sel);
+            if (btn && !btn.disabled) {
+              btn.click();
+              return;
+            }
+          }
+          /* 送信ボタンが見つからない場合は Enter キーをシミュレート */
+          ['keydown', 'keypress', 'keyup'].forEach(type =>
+            inputEl.dispatchEvent(new KeyboardEvent(type, {
+              key: 'Enter', code: 'Enter', keyCode: 13,
+              bubbles: true, composed: true, cancelable: true
+            }))
+          );
+        }
+
+        /* メッセンジャーの Shadow DOM からフォームを探して送信 */
+        const messengerEl = document.getElementById('messenger');
+        const searchRoot  = messengerEl?.shadowRoot ?? document;
+
+        const inputEl = deepQuery(
+          searchRoot,
+          'textarea, input[type="text"], input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"])'
+        );
+
+        if (inputEl) {
+          setNativeValue(inputEl, text);
+          inputEl.focus();
+          /* 少し待ってからフレームワーク状態が確定した後に送信 */
+          setTimeout(() => submitMessage(searchRoot, inputEl), 250);
+        } else {
+          console.warn('[SpeechRecognition] 入力フィールドが見つかりませんでした');
+        }
+      };
+    })();
+
+    /* =====================================================
+       初期化
+    ===================================================== */
     window.addEventListener("DOMContentLoaded", () => {
       const t = setInterval(() => {
         if (window.chatSdk) {

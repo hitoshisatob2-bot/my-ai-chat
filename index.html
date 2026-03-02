@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Voice Final</title>
+  <title>kubota WSM AI - Final Voice</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
@@ -12,17 +12,11 @@
     html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; font-family: sans-serif; }
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
-    
-    #init-voice-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #ffffff; z-index: 999999;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-    }
-    .start-btn { padding: 30px 60px; font-size: 24px; font-weight: bold; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,123,255,0.4); }
-
+    #init-voice-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 999999; display: flex; align-items: center; justify-content: center; }
+    .start-btn { padding: 30px 60px; font-size: 24px; font-weight: bold; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 15px; }
     #custom-mic-btn { position: fixed; bottom: 15px; right: 65px; z-index: 2147483647; width: 44px; height: 44px; border: none; background: #f0f0f0; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     #speech-control { position: fixed; bottom: 70px; right: 15px; z-index: 2147483647; display: none; }
-    .voice-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; cursor: pointer; }
+    .voice-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; }
     .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
   </style>
@@ -30,7 +24,7 @@
 <body>
 
   <div id="init-voice-overlay">
-    <button class="start-btn" onclick="activateAndStart(this)">音声を有効にして開始</button>
+    <button class="start-btn" onclick="activateAndStart()">音声を有効にして開始</button>
   </div>
 
   <div class="app">
@@ -41,7 +35,7 @@
         </chat-messenger-container>
       </chat-messenger>
       <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
-      <div id="speech-control"><button onclick="window.speechSynthesis.cancel()" class="voice-btn">読み上げ停止 ■</button></div>
+      <div id="speech-control"><button onclick="window.speechSynthesis.cancel()" class="voice-btn">停止 ■</button></div>
     </div>
     <aside class="pdfPanel"><div style="height:100%; display:flex; flex-direction:column;"><div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;"><span style="font-size:12px;">引用元</span><button onclick="document.body.classList.remove('pdf-open')">閉じる</button></div><iframe id="pdfFrame" style="flex:1; border:0;"></iframe></div></aside>
   </div>
@@ -49,85 +43,93 @@
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
     let voiceEnabled = false;
-    let selectedVoice = null;
+    let lastSpokenText = "";
 
-    function loadVoices() {
-      selectedVoice = window.speechSynthesis.getVoices().find(v => v.lang.includes('ja'));
-    }
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices();
-
-    function activateAndStart(btnElement) {
+    function activateAndStart() {
       document.getElementById('init-voice-overlay').style.display = 'none';
       voiceEnabled = true;
-      const uttr = new SpeechSynthesisUtterance("準備ができました");
-      if (selectedVoice) uttr.voice = selectedVoice;
+      const uttr = new SpeechSynthesisUtterance("準備完了。回答を自動で読み上げます。");
+      uttr.lang = 'ja-JP';
       window.speechSynthesis.speak(uttr);
       startMonitoring();
     }
 
+    // 読み上げ本体
     function speak(text) {
-      if (!voiceEnabled || !text) return;
+      if (!voiceEnabled || !text || text === lastSpokenText) return;
+      lastSpokenText = text;
+      
       window.speechSynthesis.cancel();
-      // 引用[1]や特殊記号を掃除
       const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').trim();
       const uttr = new SpeechSynthesisUtterance(cleanText);
-      if (selectedVoice) uttr.voice = selectedVoice;
       uttr.lang = 'ja-JP';
-      uttr.onstart = () => { document.getElementById('speech-control').style.display = 'block'; };
-      uttr.onend = () => { document.getElementById('speech-control').style.display = 'none'; };
+      uttr.rate = 1.1;
+      uttr.onstart = () => document.getElementById('speech-control').style.display = 'block';
+      uttr.onend = () => document.getElementById('speech-control').style.display = 'none';
       window.speechSynthesis.speak(uttr);
+    }
+
+    // Shadow DOMの奥深くからテキストを抽出する再帰関数
+    function getDeepinnerText(root) {
+      if (!root) return "";
+      let text = root.innerText || "";
+      const shadows = Array.from(root.querySelectorAll('*')).filter(el => el.shadowRoot);
+      for (let s of shadows) {
+        text += " " + getDeepinnerText(s.shadowRoot);
+      }
+      return text;
     }
 
     function startMonitoring() {
       const messenger = document.getElementById('messenger');
-      let lastProcessedMessage = "";
+      let stableText = "";
+      let timer = null;
 
       setInterval(() => {
-        if (!messenger || !messenger.shadowRoot) return;
-
-        // 回答テキストが含まれる可能性のある全ての要素をスキャン
-        // Google SDKの内部構造が変わっても対応できるよう、広範囲に探索
-        const items = Array.from(messenger.shadowRoot.querySelectorAll('div, p, span'))
-                           .filter(el => el.innerText && el.innerText.length > 10);
+        // 1. Messenger全体のShadow DOMからテキストをひっかき出す
+        const currentText = getDeepinnerText(messenger.shadowRoot).trim();
         
-        // 最新のメッセージ（おそらく画面の一番下にあるもの）を取得
-        const latestElement = items[items.length - 1];
-        
-        if (latestElement) {
-          const currentText = latestElement.innerText.trim();
+        // 2. テキストが変化中（AIが回答中）かチェック
+        if (currentText !== stableText) {
+          stableText = currentText;
           
-          // 「...」や「生成中」のような表示がないことを確認
-          const isThinking = currentText.includes('...') || currentText.endsWith('…');
-          
-          if (!isThinking && currentText.length > 20 && !latestElement.dataset.read) {
-            // 文字の動きが完全に止まるのを待つ（チャタリング防止）
-            clearTimeout(latestElement.timer);
-            latestElement.timer = setTimeout(() => {
-              // 最終確認：既に読み上げたものと同じでなければ実行
-              if (currentText !== lastProcessedMessage) {
-                speak(currentText);
-                lastProcessedMessage = currentText;
-                latestElement.dataset.read = "true";
-              }
-            }, 1200); // 1.2秒静止したら「回答終了」とみなす
-          }
-        }
-      }, 1000); // 1秒おきにチェック
-    }
-
-    /* SDK初期化などは変更なし */
-    window.addEventListener("DOMContentLoaded", () => {
-      const t = setInterval(() => {
-        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
-          chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
-            deploymentName: DEPLOYMENT,
-            tokenBroker: { enableTokenBroker: true },
-            pdfPreview: { enablePdfPreview: true }
-          }));
-          clearInterval(t);
+          // 3. 変化が止まってから1.5秒待つ（回答終了の判定）
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            // 4. 最新の「回答部分」だけを切り出す（一番最後のブロック）
+            const parts = currentText.split(/\n\n|ユーザー:/);
+            const latestResponse = parts[parts.length - 1].trim();
+            
+            if (latestResponse.length > 5 && !latestResponse.includes('...')) {
+              speak(latestResponse);
+            }
+          }, 1500); 
         }
       }, 1000);
+    }
+
+    /* SDK初期化・PDF・マイクは既存のまま */
+    window.addEventListener("DOMContentLoaded", () => {
+      setInterval(() => {
+        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
+          if (!window.sdkInitialized) {
+            chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
+              deploymentName: DEPLOYMENT, tokenBroker: { enableTokenBroker: true }, pdfPreview: { enablePdfPreview: true }
+            }));
+            window.sdkInitialized = true;
+          }
+        }
+      }, 1000);
+
+      window.addEventListener("click", (e) => {
+        const path = e.composedPath();
+        const a = path.find(el => el.tagName === "A");
+        if (a && a.href.includes("storage.googleapis.com")) {
+          e.preventDefault();
+          document.getElementById('pdfFrame').src = a.href;
+          document.body.classList.add('pdf-open');
+        }
+      }, true);
     });
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -137,13 +139,8 @@
       document.getElementById('custom-mic-btn').onclick = () => { try { recognition.start(); } catch(e) { recognition.stop(); } };
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        const input = document.getElementById('messenger').shadowRoot.querySelector('textarea, input');
-        if (input) {
-          input.value = text;
-          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        }
+        const input = messenger.shadowRoot.querySelector('textarea, input');
+        if (input) { input.value = text; input.dispatchEvent(new Event('input', { bubbles: true })); }
       };
     }
   </script>
-</body>
-</html>

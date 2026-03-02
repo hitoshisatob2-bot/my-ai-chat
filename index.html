@@ -3,23 +3,28 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Final Voice</title>
+  <title>kubota WSM AI - Voice Pro</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
   <style>
     :root { --panel-width: min(46vw, 920px); --panel-min: 360px; --divider: rgba(0,0,0,.10); --header-h: 48px; }
-    html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; font-family: sans-serif; }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; }
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
     
-    /* 初期有効化ボタン（これが重要） */
+    /* 起動オーバーレイ（確実に反応するように修正） */
     #init-voice-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.9); z-index: 999999;
+      background: #ffffff; z-index: 999999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
-    .start-btn { padding: 20px 40px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .start-btn { 
+      padding: 24px 48px; font-size: 20px; font-weight: bold; cursor: pointer; 
+      background: #007bff; color: white; border: none; border-radius: 50px; 
+      box-shadow: 0 10px 20px rgba(0,123,255,0.3); transition: transform 0.2s;
+    }
+    .start-btn:active { transform: scale(0.95); }
 
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
@@ -34,13 +39,13 @@
 
     .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
-    @media (max-width: 900px) { .pdfPanel { display: none; } }
   </style>
 </head>
 <body>
+
   <div id="init-voice-overlay">
-    <button class="start-btn" onclick="activateVoice()">AIチャットを開始（音声を有効化）</button>
-    <p style="margin-top:15px; color:#666;">※ブラウザの音声制限を解除するために必要です</p>
+    <button id="start-node" class="start-btn">AIチャットを開始する</button>
+    <p style="margin-top:20px; color:#555;">クリックすると音声機能が有効になります</p>
   </div>
 
   <div class="app">
@@ -53,104 +58,4 @@
       <button id="custom-mic-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
       <div id="speech-control"><button id="stop-speech-btn" class="voice-btn">読み上げ停止 ■</button></div>
     </div>
-    <aside class="pdfPanel"><div style="height:100%; display:flex; flex-direction:column;"><div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;"><span style="font-size:12px;">引用元</span><button onclick="document.body.classList.remove('pdf-open')">閉じる</button></div><iframe id="pdfFrame" style="flex:1; border:0;"></iframe></div></aside>
-  </div>
-
-  <script>
-    const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
-
-    let isVoiceActive = false;
-    let spokenTexts = new Set(); // 読み上げ済みテキストの記録
-
-    // 1. 音声の有効化（ユーザー操作）
-    function activateVoice() {
-      const dummy = new SpeechSynthesisUtterance("読み上げを有効にしました");
-      dummy.volume = 0; // 無音で一度流してロックを解除
-      window.speechSynthesis.speak(dummy);
-      isVoiceActive = true;
-      document.getElementById('init-voice-overlay').style.display = 'none';
-    }
-
-    // 2. 読み上げ実行
-    function speak(text) {
-      if (!isVoiceActive || !text || text.length < 5) return;
-      
-      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').trim();
-      if (spokenTexts.has(cleanText)) return;
-      spokenTexts.add(cleanText);
-
-      const uttr = new SpeechSynthesisUtterance(cleanText);
-      uttr.lang = 'ja-JP';
-      uttr.rate = 1.1;
-      uttr.onstart = () => { document.getElementById('speech-control').style.display = 'block'; };
-      uttr.onend = () => { if(!window.speechSynthesis.speaking) document.getElementById('speech-control').style.display = 'none'; };
-      window.speechSynthesis.speak(uttr);
-    }
-
-    document.getElementById('stop-speech-btn').addEventListener('click', () => {
-      window.speechSynthesis.cancel();
-      document.getElementById('speech-control').style.display = 'none';
-    });
-
-    // 3. 監視ロジック（ポーリング）
-    function startMonitoring() {
-      const messenger = document.getElementById('messenger');
-      
-      setInterval(() => {
-        if (!messenger.shadowRoot) return;
-
-        // AIの回答エリアを特定（セレクタを複数候補で探す）
-        const agents = messenger.shadowRoot.querySelectorAll('.message.agent, .agent-message, [role="listitem"]');
-        if (agents.length > 0) {
-          const latestAgent = agents[agents.length - 1];
-          const text = latestAgent.innerText;
-
-          // テキストが存在し、かつ「...」などが含まれていない「確定」状態を待つ
-          if (text && text.length > 10 && !text.includes('...') && !latestAgent.dataset.read) {
-            // 文字がこれ以上増えないか少し待機して確定
-            clearTimeout(latestAgent.timer);
-            latestAgent.timer = setTimeout(() => {
-              speak(latestAgent.innerText);
-              latestAgent.dataset.read = "true";
-            }, 1500);
-          }
-        }
-      }, 1000);
-    }
-
-    /* 初期化 & PDF & マイク (既存ロジックを統合) */
-    window.addEventListener("DOMContentLoaded", () => {
-      const checkReady = setInterval(() => {
-        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
-          chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
-            deploymentName: DEPLOYMENT,
-            tokenBroker: { enableTokenBroker: true },
-            pdfPreview: { enablePdfPreview: true }
-          }));
-          startMonitoring();
-          clearInterval(checkReady);
-        }
-      }, 1000);
-
-      window.addEventListener("click", (e) => {
-        const path = e.composedPath();
-        const a = path.find(el => el.tagName === "A");
-        if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
-          e.preventDefault();
-          if (window.innerWidth <= 900) { window.open(a.href, '_blank'); } 
-          else { document.getElementById('pdfFrame').src = a.href; document.body.classList.add('pdf-open'); }
-        }
-      }, true);
-    });
-
-    // マイクボタン（既存）
-    const micBtn = document.getElementById('custom-mic-btn');
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ja-JP';
-      micBtn.addEventListener('click', () => { try { recognition.start(); } catch(e) { recognition.stop(); } });
-      recognition.onstart = () => micBtn.classList.add('recording');
-      recognition.onend = () => micBtn.classList.remove('recording');
-      recognition.onresult = (event) => {
-        const text = event.
+    <aside class="pdfPanel"><div style="height:100%; display:flex; flex-direction:column;"><div style="height:48px; display:flex; align-items:center; padding

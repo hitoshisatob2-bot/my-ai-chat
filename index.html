@@ -3,37 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - PDF Page Fixed</title>
+  <title>kubota WSM AI - Mobile PDF Final</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
 
   <style>
-    :root {
-      --panel-width: min(46vw, 920px);
-      --panel-min: 360px;
-      --divider: rgba(0,0,0,.10);
-      --header-h: 48px;
-    }
+    :root { --panel-width: min(46vw, 920px); --panel-min: 360px; --divider: rgba(0,0,0,.10); --header-h: 48px; }
     html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; }
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
 
-    /* PDFパネル（スマホ対応） */
-    .pdfPanel {
-      width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider);
-      background: #fff; overflow: hidden; transition: all 300ms ease;
-    }
+    /* PDFパネル設定 */
+    .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
     .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
     .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); justify-content: space-between; }
-    .pdfTitle { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px; }
-    .pdfFrame { flex: 1; border: 0; background: #525659; } /* 背景をPDFビュワー風に */
+    .pdfTitle { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdfFrame { flex: 1; border: 0; background: #fff; -webkit-overflow-scrolling: touch; } /* スマホ用スクロール修正 */
 
-    .closeBtn {
-      padding: 6px 12px; background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 12px;
-    }
+    .closeBtn { padding: 6px 12px; background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 12px; }
 
     /* マイクボタン */
     #custom-mic-btn {
@@ -43,20 +33,12 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.2); touch-action: manipulation;
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,75,75,0.5); } 50% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
-
-    #stt-toast {
-      position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%);
-      background: rgba(30,30,30,0.9); color: #fff; padding: 10px 18px;
-      border-radius: 10px; font-size: 13px; z-index: 2147483647; opacity: 0; transition: opacity 0.2s;
-    }
-    #stt-toast.show { opacity: 1; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.4); } 100% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
 
     @media (max-width: 900px) {
       .pdfPanel { position: fixed; right: 0; top: 0; height: 100vh; z-index: 99999; transform: translateX(100%); }
       body.pdf-open .pdfPanel { transform: translateX(0); width: 100vw; }
       .pdfPanelInner { width: 100vw; }
-      #custom-mic-btn { bottom: 12px; right: 55px; }
     }
   </style>
 </head>
@@ -69,14 +51,12 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-
       <button id="custom-mic-btn">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
     </div>
-
     <aside class="pdfPanel">
       <div class="pdfPanelInner">
         <div class="pdfHeader">
@@ -88,33 +68,36 @@
     </aside>
   </div>
 
-  <div id="stt-toast"></div>
-
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
     /* =====================================================
-       核心修正：PDFの特定のページを開くロジック
+       核心修正：スマホでのページ指定問題を解決
     ===================================================== */
     function openPdfInRightPanel(url) {
-      // URLからファイル名部分を抽出してタイトルに表示
-      const fileName = url.split('/').pop().split('#')[0];
-      document.getElementById("pdfTitle").textContent = "引用元: " + decodeURIComponent(fileName);
-      
-      const frame = document.getElementById("pdfFrame");
-      
-      // 既存の iframe を一度空にして、確実に再ロードさせる（同じPDFの別ページ対策）
-      frame.src = "about:blank";
-      
-      setTimeout(() => {
-        // PDFの表示位置を調整するためのパラメータを付与
-        // すでに #page= がある場合はそのまま、ない場合はURLをセット
-        // ズーム設定 (#view=FitH) を加えるとより根拠が見やすくなります
-        let finalUrl = url;
+      const isMobile = window.innerWidth <= 900;
+      let finalUrl = url;
+
+      if (isMobile) {
+        // スマホの場合、Google Drive ビューアーを介して表示（ページ指定とスクロール制限を回避）
+        // エンコードされたURLを embedded=true で渡す
+        const cleanUrl = url.split('#')[0];
+        const pageMatch = url.match(/#page=(\d+)/);
+        const pageNum = pageMatch ? pageMatch[1] : 1;
+        
+        // Googleビューアー形式に変換
+        finalUrl = "https://docs.google.com/viewer?url=" + encodeURIComponent(cleanUrl) + "&embedded=true#page=" + pageNum;
+      } else {
+        // PCの場合はブラウザ標準の表示（直接ジャンプが可能）
         if (!finalUrl.includes('#view=')) {
           finalUrl += (finalUrl.includes('#') ? '&' : '#') + 'view=FitH';
         }
-        
+      }
+
+      const frame = document.getElementById("pdfFrame");
+      frame.src = "about:blank"; // キャッシュクリア
+      
+      setTimeout(() => {
         frame.src = finalUrl;
         document.body.classList.add("pdf-open");
       }, 50);
@@ -125,35 +108,18 @@
       document.getElementById("pdfFrame").src = "";
     }
 
-    /* =====================================================
-       音声認識 & Shadow DOM 入力ロジック (維持)
-    ===================================================== */
-    let targetInput = null;
-    function showToast(msg) {
-      const t = document.getElementById('stt-toast');
-      t.textContent = msg; t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 3000);
-    }
-
+    /* 音声認識ロジック (維持) */
     const micBtn = document.getElementById('custom-mic-btn');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
-      
-      micBtn.addEventListener('click', () => {
-        try { recognition.start(); } catch(e) { recognition.stop(); }
-      });
-
-      recognition.onstart = () => { micBtn.classList.add('recording'); showToast("話してください..."); };
+      micBtn.addEventListener('click', () => { try { recognition.start(); } catch(e) { recognition.stop(); } });
+      recognition.onstart = () => { micBtn.classList.add('recording'); };
       recognition.onend = () => { micBtn.classList.remove('recording'); };
-      
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
         const messenger = document.getElementById("messenger");
-        
-        // Shadow DOM 内部を探索して入力
         const findAndFill = (root) => {
           const input = root.querySelector('textarea, input:not([type="hidden"])');
           if (input) {
@@ -162,19 +128,16 @@
             input.focus();
             return true;
           }
-          const children = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
-          for (let child of children) { if (findAndFill(child.shadowRoot)) return true; }
+          const shadows = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
+          for (let s of shadows) { if (findAndFill(s.shadowRoot)) return true; }
           return false;
         };
         findAndFill(messenger.shadowRoot);
       };
     }
 
-    /* =====================================================
-       リンククリックのイベントリスナー (重要)
-    ===================================================== */
+    /* リンククリック制御 */
     window.addEventListener("DOMContentLoaded", () => {
-      // SDK初期化
       const t = setInterval(() => {
         if (window.chatSdk) {
           chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
@@ -186,13 +149,10 @@
         }
       }, 300);
 
-      // クリックイベントの横取り（PDFページ情報を維持して渡す）
       window.addEventListener("click", (e) => {
         const path = e.composedPath();
         const a = path.find(el => el.tagName === "A");
-        
         if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
-          // 重要：a.href には #page=5 などの情報が含まれています
           e.preventDefault();
           e.stopImmediatePropagation();
           openPdfInRightPanel(a.href);

@@ -3,28 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Stable PDF</title>
+  <title>kubota WSM AI - Voice Reader</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
 
   <style>
+    /* 既存のスタイル維持 */
     :root { --panel-width: min(46vw, 920px); --panel-min: 360px; --divider: rgba(0,0,0,.10); --header-h: 48px; }
     html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; }
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
-
-    /* PDFパネル：PCでのみ使用 */
-    .pdfPanel { 
-      width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); 
-      background: #fff; overflow: hidden; transition: all 300ms ease; 
-    }
+    .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
     .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
     .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); justify-content: space-between; }
     .pdfFrame { flex: 1; border: 0; width: 100%; height: 100%; }
 
+    /* マイクボタン */
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
@@ -32,12 +29,15 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.4); } 100% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
-
-    @media (max-width: 900px) {
-      /* スマホではパネルを完全に非表示にし、別タブ遷移に切り替える */
-      .pdfPanel { display: none; }
+    
+    /* 読み上げ停止ボタン（読み上げ中に表示） */
+    #stop-speech-btn {
+      position: fixed; bottom: 70px; right: 15px; z-index: 2147483647;
+      display: none; padding: 8px 12px; background: #333; color: white;
+      border-radius: 20px; border: none; font-size: 12px; cursor: pointer;
     }
+
+    @media (max-width: 900px) { .pdfPanel { display: none; } }
   </style>
 </head>
 <body>
@@ -49,11 +49,14 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
+      
       <button id="custom-mic-btn">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
+
+      <button id="stop-speech-btn">読み上げ停止 ■</button>
     </div>
     <aside class="pdfPanel">
       <div class="pdfPanelInner">
@@ -69,33 +72,76 @@
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-    /* =====================================================
-       核心修正：PCはパネル、スマホは別タブで開く
-    ===================================================== */
+    /* --- PDF操作ロジック --- */
     function openPdfInRightPanel(url) {
-      const isMobile = window.innerWidth <= 900;
-
-      if (isMobile) {
-        // スマホの場合：サイズ制限を回避するため、ブラウザの別タブでPDFを開く
-        // これにより、スマホ標準の最強のPDFビューアーが立ち上がり、ページ指定も100%効きます
-        window.open(url, '_blank');
-      } else {
-        // PCの場合：今まで通り右パネルで表示
+      if (window.innerWidth <= 900) { window.open(url, '_blank'); } 
+      else {
         const frame = document.getElementById("pdfFrame");
         frame.src = "about:blank";
-        setTimeout(() => {
-          frame.src = url;
-          document.body.classList.add("pdf-open");
-        }, 50);
+        setTimeout(() => { frame.src = url; document.body.classList.add("pdf-open"); }, 50);
       }
     }
+    function closePdfPanel() { document.body.classList.remove("pdf-open"); document.getElementById("pdfFrame").src = ""; }
 
-    function closePdfPanel() {
-      document.body.classList.remove("pdf-open");
-      document.getElementById("pdfFrame").src = "";
+    /* =====================================================
+       核心修正：読み上げ（Text-to-Speech）機能
+    ===================================================== */
+    const stopBtn = document.getElementById('stop-speech-btn');
+
+    function speakText(text) {
+      // 既存の読み上げをキャンセル
+      window.speechSynthesis.cancel();
+
+      // 引用などの不要な記号（[1]など）を少し掃除して読みやすくする
+      const cleanText = text.replace(/\[\d+\]/g, '').trim();
+
+      const uttr = new SpeechSynthesisUtterance(cleanText);
+      uttr.lang = 'ja-JP';
+      uttr.rate = 1.1; // 速度（少し速めが自然）
+      uttr.pitch = 1.0; // 声の高さ
+
+      uttr.onstart = () => { stopBtn.style.display = 'block'; };
+      uttr.onend = () => { stopBtn.style.display = 'none'; };
+
+      window.speechSynthesis.speak(uttr);
     }
 
-    /* 音声認識ロジック (維持) */
+    stopBtn.addEventListener('click', () => {
+      window.speechSynthesis.cancel();
+      stopBtn.style.display = 'none';
+    });
+
+    // AIの回答を監視して自動読み上げ
+    const observeChat = () => {
+      const messenger = document.getElementById("messenger");
+      if (!messenger.shadowRoot) return;
+
+      // 回答が追加されるエリアを監視
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.addedNodes.length > 0) {
+            mutation.addedNodes.forEach((node) => {
+              // 「回答テキスト」が含まれる要素を特定
+              // Googleのコンポーネント構造に合わせてクラス名を調整
+              if (node.nodeType === 1 && node.innerText && node.getAttribute('role') === 'listitem') {
+                 // ユーザーの発言ではなく「AIの回答」のみを読み上げる
+                 // ※ 簡易的な判定のため、必要に応じて調整
+                 const text = node.innerText;
+                 if (text.length > 5) speakText(text);
+              }
+            });
+          }
+        });
+      });
+
+      // Messengerの内部（Shadow DOM内）を監視
+      const chatContainer = messenger.shadowRoot.querySelector('.messages-card-container');
+      if (chatContainer) {
+        observer.observe(chatContainer, { childList: true, subtree: true });
+      }
+    };
+
+    /* --- 音声認識（既存） --- */
     const micBtn = document.getElementById('custom-mic-btn');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -131,6 +177,7 @@
             tokenBroker: { enableTokenBroker: true },
             pdfPreview: { enablePdfPreview: true }
           }));
+          observeChat(); // 監視開始
           clearInterval(t);
         }
       }, 300);
@@ -139,8 +186,7 @@
         const path = e.composedPath();
         const a = path.find(el => el.tagName === "A");
         if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
+          e.preventDefault(); e.stopImmediatePropagation();
           openPdfInRightPanel(a.href);
         }
       }, true);

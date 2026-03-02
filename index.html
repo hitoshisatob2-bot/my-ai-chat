@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI.b - Voice Final</title>
+  <title>kubota WSM AI.c - Voice Final</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
@@ -228,43 +228,47 @@
     }
 
     /* ================================================================
-       ④ Shadow DOM を再帰的に走査して最新のAI応答テキストを取得
-         （Google CES Chat Messenger は深い Shadow DOM 構造を持つ）
-    ================================================================ */
-    function getLatestAgentText(root) {
-      if (!root) return null;
-      const found = [];
+     ④ Shadow DOM 内からAI応答テキストを取得（修正版）
+     - querySelectorAll('*') で全子孫を正しくスキャン
+     - INPUT/TEXTAREA/BUTTON を除外
+     - looksLikeAI フィルターを削除（Google CESのクラス名に依存しない）
+  ================================================================ */
+  function getLatestAgentText(root) {
+    if (!root) return null;
+    let lastText = "";
 
-      (function traverse(node) {
-        if (!node) return;
-
-        // Shadow Root があれば潜る
-        if (node.shadowRoot) traverse(node.shadowRoot);
-
-        // 子要素を巡回
-        for (const child of (node.children || [])) traverse(child);
+    function scan(r) {
+      if (!r) return;
+      // querySelectorAll は Shadow DOM を貫通しないため、
+      // 各レベルで明示的に再帰する
+      const nodes = Array.from(r.querySelectorAll('*'));
+      for (const node of nodes) {
+        // Shadow Host なら Shadow Root に潜る
+        if (node.shadowRoot) {
+          scan(node.shadowRoot);
+          continue;
+        }
+        // 入力・ボタン系要素はスキップ（入力中テキストを誤読しない）
+        if (['INPUT','TEXTAREA','BUTTON','SELECT','OPTION'].includes(node.tagName)) continue;
 
         const text = (node.innerText || '').trim();
-        if (text.length < 10) return;
-
-        // ユーザー発言 / UI ラベルを除外
-        const isUserMsg =
-          text.startsWith('You:') || text.startsWith('ユーザー:') ||
-          text.startsWith('私:')  || text === '送信' || text === 'Send';
-        if (isUserMsg) return;
-
-        // AIメッセージらしい要素の判定（role / class）
-        const role = node.getAttribute?.('role') || '';
-        const cls  = (typeof node.className === 'string') ? node.className : '';
-        const looksLikeAI =
-          role === 'listitem' || role === 'article' ||
-          /message|response|agent|bot|answer/i.test(cls);
-
-        if (looksLikeAI) found.push(text);
-      })(root);
-
-      return found.length ? found[found.length - 1] : null;
+        if (
+          text.length > 10 &&
+          !text.includes('ユーザー:') &&
+          !text.includes('You:') &&
+          !text.includes('私:') &&
+          text !== '送信' && text !== 'Send' &&
+          text !== '停止 ■' && text !== '■ 停止'
+        ) {
+          lastText = text; // DOM順＝表示順なので末尾が最新メッセージ
+        }
+      }
     }
+
+    scan(root);
+    return lastText || null;
+  }
+
 
     /* ================================================================
        ⑤ AI応答の監視（500ms ポーリング + 2秒安定判定）
@@ -461,3 +465,4 @@
   </script>
 </body>
 </html>
+

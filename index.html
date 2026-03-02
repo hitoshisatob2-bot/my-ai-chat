@@ -85,6 +85,9 @@
 
     let voiceEnabled = false;
 
+    /* -----------------------------
+       ボタン押下 → 音声有効化
+    ----------------------------- */
     function activateAndStart() {
       document.getElementById('init-voice-overlay').style.display = 'none';
       voiceEnabled = true;
@@ -96,6 +99,9 @@
       waitForShadowDOM();
     }
 
+    /* -----------------------------
+       読み上げ処理
+    ----------------------------- */
     function speak(text) {
       if (!voiceEnabled || !text) return;
 

@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>kubota WSM AI - Voice & PDF Fixed</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>kubota WSM AI - Mobile Fixed</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -15,181 +15,67 @@
       --panel-min: 360px;
       --divider: rgba(0,0,0,.10);
       --header-h: 48px;
-      --bg: #fff;
     }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #fff; }
+    .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
+    .chatArea { flex: 1; position: relative; }
 
-    html, body { height: 100%; }
-    body { margin: 0; background: var(--bg); overflow: hidden; }
-
-    .app {
-      height: 100vh;
-      width: 100vw;
-      display: flex;
-      align-items: stretch;
+    /* PDFパネル（スマホでは全画面スライド） */
+    .pdfPanel {
+      width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider);
+      background: #fff; overflow: hidden; transition: all 300ms ease;
     }
+    body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
+    .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
+    .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); }
+    .pdfTitle { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdfFrame { flex: 1; border: 0; }
 
-    .chatArea{
-      flex: 1 1 auto;
-      min-width: 0;
-      position: relative;
-    }
-
-    /* PDFパネル設定 */
-    .pdfPanel{
-      width: 0;
-      flex: 0 0 auto;
-      border-left: 1px solid var(--divider);
-      background: #fff;
-      overflow: hidden;
-      transition: width 200ms ease;
-    }
-
-    .pdfPanelInner{
-      height: 100%;
-      width: max(var(--panel-min), var(--panel-width));
-      display: flex;
-      flex-direction: column;
-    }
-
-    body.pdf-open .pdfPanel{
-      width: max(var(--panel-min), var(--panel-width));
-    }
-
-    .pdfHeader{
-      height: var(--header-h);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 10px;
-      border-bottom: 1px solid var(--divider);
-      background: #fafafa;
-    }
-
-    .pdfTitle{
-      flex: 1;
-      min-width: 0;
-      font: 13px/1.2 system-ui, sans-serif;
-      color: #222;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .pdfBtn{
-      height: 32px;
-      padding: 0 10px;
-      border: 1px solid rgba(0,0,0,.15);
-      background: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-      font: 13px/1 system-ui, sans-serif;
-    }
-
-    .pdfFrame{
-      flex: 1;
-      border: 0;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* 自前マイクボタンのスタイル設定 */
+    /* 【改良】自前マイクボタン（スマホで見やすい位置に調整） */
     #custom-mic-btn {
-      position: fixed;
-      bottom: 22px;
-      right: 70px; /* 送信ボタンの左側に配置 */
-      z-index: 10000;
-      width: 40px;
-      height: 40px;
-      border: none;
-      background: #f0f0f0;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.3s;
+      position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
+      width: 44px; height: 44px; border: none; background: #f0f0f0;
+      border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2); touch-action: manipulation;
     }
-    #custom-mic-btn:hover { background: #e0e0e0; }
-    #custom-mic-btn.recording { background: #ff4b4b; animation: pulse 1.5s infinite; }
-    
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-      100% { transform: scale(1); }
-    }
+    #custom-mic-btn.recording { background: #ff4b4b; color: white; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
-    @media (max-width: 900px){
-      .pdfPanel{
-        position: fixed;
-        right: 0;
-        top: 0;
-        height: 100vh;
-        z-index: 99999;
-        transform: translateX(100%);
-      }
-      body.pdf-open .pdfPanel{ transform: translateX(0); }
+    @media (max-width: 900px) {
+      .pdfPanel { position: fixed; right: 0; top: 0; height: 100vh; z-index: 99999; transform: translateX(100%); }
+      body.pdf-open .pdfPanel { transform: translateX(0); width: 100vw; }
+      .pdfPanelInner { width: 100vw; }
+      #custom-mic-btn { bottom: 12px; right: 55px; } /* スマホの入力欄に合わせ調整 */
     }
   </style>
 </head>
-
 <body>
   <div class="app">
     <div class="chatArea">
-      <chat-messenger
-        id="messenger"
-        allow-citations="true"
-        allow-pdf-preview="true"
-        style="width:100%; height:100%; position:absolute; inset:0;">
+      <chat-messenger id="messenger" allow-citations="true" style="width:100%; height:100%;">
         <chat-messenger-container chat-title="kubota-wsm-ai">
-          <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
+           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      
-      <button id="custom-mic-btn" title="音声入力">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-        </svg>
+      <button id="custom-mic-btn">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
       </button>
     </div>
-
-    <aside class="pdfPanel">
-      <div class="pdfPanelInner">
-        <div class="pdfHeader">
-          <div id="pdfTitle" class="pdfTitle">PDFプレビュー</div>
-          <button id="openNewTabBtn" class="pdfBtn">別タブで開く</button>
-          <button id="closePdfBtn" class="pdfBtn">閉じる</button>
-        </div>
-        <iframe id="pdfFrame" class="pdfFrame"></iframe>
-      </div>
-    </aside>
+    <aside class="pdfPanel"><div class="pdfPanelInner"><div class="pdfHeader"><div id="pdfTitle" class="pdfTitle"></div><button onclick="closePdfPanel()">閉じる</button></div><iframe id="pdfFrame" class="pdfFrame"></iframe></div></aside>
   </div>
 
   <script>
-    const DEPLOYMENT_NAME = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
+    const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-    let currentPdfUrl = "";
-
-    // PDF判定と表示処理
-    function isPdfUrl(url){
-      if(!url) return false;
-      const u = String(url).toLowerCase();
-      return u.includes(".pdf") || u.includes("storage.googleapis.com");
-    }
-
+    // PDFパネル操作
     function openPdfInRightPanel(url){
-      currentPdfUrl = url;
-      document.getElementById("pdfTitle").textContent = url;
-      document.getElementById("pdfFrame").src = url + "#view=FitH";
+      document.getElementById("pdfTitle").textContent = "引用元PDF";
+      document.getElementById("pdfFrame").src = url;
       document.body.classList.add("pdf-open");
     }
+    function closePdfPanel(){ document.body.classList.remove("pdf-open"); document.getElementById("pdfFrame").src = ""; }
 
-    function closePdfPanel(){
-      document.body.classList.remove("pdf-open");
-      document.getElementById("pdfFrame").src = "about:blank";
-      currentPdfUrl = "";
-    }
-
-    // 音声認識（Web Speech API）の実装
+    // 【スマホ対応】音声認識エンジン
     const micBtn = document.getElementById('custom-mic-btn');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -197,65 +83,56 @@
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
       recognition.interimResults = false;
+      recognition.continuous = false;
+
+      let isRecording = false;
 
       micBtn.addEventListener('click', () => {
-        try {
-          recognition.start();
-        } catch (e) {
+        if (!isRecording) {
+          try {
+            recognition.start();
+          } catch (e) { console.error(e); }
+        } else {
           recognition.stop();
         }
       });
 
-      recognition.onstart = () => { micBtn.classList.add('recording'); };
-      recognition.onend = () => { micBtn.classList.remove('recording'); };
+      recognition.onstart = () => { isRecording = true; micBtn.classList.add('recording'); };
+      recognition.onend = () => { isRecording = false; micBtn.classList.remove('recording'); };
+      recognition.onerror = (e) => { alert("マイクエラー: " + e.error + "\nブラウザの設定でマイクを許可してください。"); };
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         const messenger = document.getElementById("messenger");
-        
-        // Googleの入力欄（Shadow DOM内）を特定して文字を流し込む
-        const inputField = messenger.shadowRoot.querySelector('textarea') || 
-                           messenger.shadowRoot.querySelector('input');
-        
-        if (inputField) {
-          inputField.value = transcript;
-          inputField.dispatchEvent(new Event('input', { bubbles: true }));
-          inputField.focus();
+        // Shadow DOMの奥深くにある入力欄を探す
+        const input = messenger.shadowRoot.querySelector('textarea') || messenger.shadowRoot.querySelector('input');
+        if (input) {
+          input.value = transcript;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.focus();
         }
       };
-    } else {
-      micBtn.style.display = 'none';
-      console.log("このブラウザは音声認識に対応していません");
     }
 
-    // SDK初期化
+    // 初期化
     window.addEventListener("DOMContentLoaded", () => {
-      let contextRegistered = false;
       const t = setInterval(() => {
-        if (window.chatSdk && !contextRegistered) {
+        if (window.chatSdk) {
           chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
-            deploymentName: DEPLOYMENT_NAME,
-            tokenBroker: { enableTokenBroker: true, enableRecaptcha: false },
+            deploymentName: DEPLOYMENT,
+            tokenBroker: { enableTokenBroker: true },
             pdfPreview: { enablePdfPreview: true }
           }));
-          contextRegistered = true;
           clearInterval(t);
         }
-      }, 200);
+      }, 300);
 
-      document.getElementById("closePdfBtn").addEventListener("click", closePdfPanel);
-      document.getElementById("openNewTabBtn").addEventListener("click", () => {
-        if(currentPdfUrl) window.open(currentPdfUrl, "_blank");
-      });
-
-      // PDFリンク横取り処理
       window.addEventListener("click", (e) => {
         const path = e.composedPath();
-        const anchor = path.find(el => el.tagName === "A");
-        if (anchor && isPdfUrl(anchor.href)) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          openPdfInRightPanel(anchor.href);
+        const a = path.find(el => el.tagName === "A");
+        if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
+          e.preventDefault(); e.stopImmediatePropagation();
+          openPdfInRightPanel(a.href);
         }
       }, true);
     });

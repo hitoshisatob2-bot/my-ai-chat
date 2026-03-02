@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Mobile PDF Final</title>
+  <title>kubota WSM AI - Final PDF Fix</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -15,22 +15,20 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
 
-    /* PDFパネル設定 */
     .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
     .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
     .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); justify-content: space-between; }
     .pdfTitle { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pdfFrame { flex: 1; border: 0; background: #fff; -webkit-overflow-scrolling: touch; } /* スマホ用スクロール修正 */
+    .pdfFrame { flex: 1; border: 0; background: #eee; }
 
     .closeBtn { padding: 6px 12px; background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 12px; }
 
-    /* マイクボタン */
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
       border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2); touch-action: manipulation;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; animation: pulse 1.2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.4); } 100% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
@@ -72,30 +70,23 @@
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
     /* =====================================================
-       核心修正：スマホでのページ指定問題を解決
+       核心修正：サイズ制限を回避するPDF.jsビューアー方式
     ===================================================== */
     function openPdfInRightPanel(url) {
-      const isMobile = window.innerWidth <= 900;
-      let finalUrl = url;
-
-      if (isMobile) {
-        // スマホの場合、Google Drive ビューアーを介して表示（ページ指定とスクロール制限を回避）
-        // エンコードされたURLを embedded=true で渡す
-        const cleanUrl = url.split('#')[0];
-        const pageMatch = url.match(/#page=(\d+)/);
-        const pageNum = pageMatch ? pageMatch[1] : 1;
-        
-        // Googleビューアー形式に変換
-        finalUrl = "https://docs.google.com/viewer?url=" + encodeURIComponent(cleanUrl) + "&embedded=true#page=" + pageNum;
-      } else {
-        // PCの場合はブラウザ標準の表示（直接ジャンプが可能）
-        if (!finalUrl.includes('#view=')) {
-          finalUrl += (finalUrl.includes('#') ? '&' : '#') + 'view=FitH';
-        }
-      }
+      // PDF.js の公開ビューアーを利用して、サイズ制限なく表示する
+      // この方式は、URLに直接 #page=X を渡すだけでスマホでもジャンプが可能です
+      const pdfJsViewer = "https://mozilla.github.io/pdf.js/web/viewer.html?file=";
+      
+      // 1. オリジナルのURLからページ番号情報を取得
+      const cleanUrl = url.split('#')[0];
+      const pageMatch = url.match(/#page=(\d+)/);
+      const pageNum = pageMatch ? pageMatch[1] : 1;
+      
+      // 2. ビューアーURLを組み立て（元のURLをエンコードして渡す）
+      let finalUrl = pdfJsViewer + encodeURIComponent(cleanUrl) + "#page=" + pageNum;
 
       const frame = document.getElementById("pdfFrame");
-      frame.src = "about:blank"; // キャッシュクリア
+      frame.src = "about:blank";
       
       setTimeout(() => {
         frame.src = finalUrl;
@@ -119,7 +110,6 @@
       recognition.onend = () => { micBtn.classList.remove('recording'); };
       recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        const messenger = document.getElementById("messenger");
         const findAndFill = (root) => {
           const input = root.querySelector('textarea, input:not([type="hidden"])');
           if (input) {
@@ -132,11 +122,11 @@
           for (let s of shadows) { if (findAndFill(s.shadowRoot)) return true; }
           return false;
         };
-        findAndFill(messenger.shadowRoot);
+        findAndFill(document.getElementById("messenger").shadowRoot);
       };
     }
 
-    /* リンククリック制御 */
+    /* 初期化 */
     window.addEventListener("DOMContentLoaded", () => {
       const t = setInterval(() => {
         if (window.chatSdk) {

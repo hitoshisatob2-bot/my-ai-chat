@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Final Fix</title>
+  <title>kubota WSM AI - Stable PDF</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -15,43 +15,16 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
 
-    /* PDFパネル：スマホでのスクロールを強制有効化 */
+    /* PDFパネル：PCでのみ使用 */
     .pdfPanel { 
       width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); 
       background: #fff; overflow: hidden; transition: all 300ms ease; 
     }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
-    
-    .pdfPanelInner { 
-      height: 100%; width: max(var(--panel-min), var(--panel-width)); 
-      display: flex; flex-direction: column; 
-    }
-    
-    .pdfHeader { 
-      height: var(--header-h); display: flex; align-items: center; 
-      padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); 
-      justify-content: space-between; flex-shrink: 0;
-    }
-    
-    /* 重要：スマホのPDF表示崩れを防ぐコンテナ */
-    .pdfContainer {
-      flex: 1;
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch; /* iOSでのスムーズスクロール */
-    }
+    .pdfPanelInner { height: 100%; width: max(var(--panel-min), var(--panel-width)); display: flex; flex-direction: column; }
+    .pdfHeader { height: var(--header-h); display: flex; align-items: center; padding: 0 10px; background: #fafafa; border-bottom: 1px solid var(--divider); justify-content: space-between; }
+    .pdfFrame { flex: 1; border: 0; width: 100%; height: 100%; }
 
-    .pdfFrame { 
-      width: 100%; 
-      height: 100%; 
-      border: 0; 
-      display: block;
-    }
-
-    .closeBtn { padding: 6px 12px; background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 12px; }
-
-    /* マイクボタン */
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
@@ -62,9 +35,8 @@
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.4); } 100% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } }
 
     @media (max-width: 900px) {
-      .pdfPanel { position: fixed; right: 0; top: 0; height: 100vh; z-index: 99999; transform: translateX(100%); }
-      body.pdf-open .pdfPanel { transform: translateX(0); width: 100vw; }
-      .pdfPanelInner { width: 100vw; }
+      /* スマホではパネルを完全に非表示にし、別タブ遷移に切り替える */
+      .pdfPanel { display: none; }
     }
   </style>
 </head>
@@ -86,12 +58,10 @@
     <aside class="pdfPanel">
       <div class="pdfPanelInner">
         <div class="pdfHeader">
-          <div id="pdfTitle" style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">引用プレビュー</div>
-          <button class="closeBtn" onclick="closePdfPanel()">閉じる</button>
+          <div id="pdfTitle" style="font-size:12px;">引用プレビュー</div>
+          <button onclick="closePdfPanel()">閉じる</button>
         </div>
-        <div class="pdfContainer">
-          <iframe id="pdfFrame" class="pdfFrame"></iframe>
-        </div>
+        <iframe id="pdfFrame" class="pdfFrame"></iframe>
       </div>
     </aside>
   </div>
@@ -100,26 +70,24 @@
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
     /* =====================================================
-       核心修正：ブラウザ標準機能のみを使用（サイズ制限回避）
+       核心修正：PCはパネル、スマホは別タブで開く
     ===================================================== */
     function openPdfInRightPanel(url) {
-      const frame = document.getElementById("pdfFrame");
-      
-      // 1. キャッシュ対策として一度空にする
-      frame.src = "about:blank";
-      
-      // 2. ページ指定（#page=X）を含むURLをそのままセット
-      // スマホのSafari/Chromeでページジャンプを効かせるため
-      // ズーム（FitH）も同時指定
-      let targetUrl = url;
-      if (!targetUrl.includes('#view=')) {
-        targetUrl += (targetUrl.includes('#') ? '&' : '#') + 'view=FitH';
-      }
+      const isMobile = window.innerWidth <= 900;
 
-      setTimeout(() => {
-        frame.src = targetUrl;
-        document.body.classList.add("pdf-open");
-      }, 100);
+      if (isMobile) {
+        // スマホの場合：サイズ制限を回避するため、ブラウザの別タブでPDFを開く
+        // これにより、スマホ標準の最強のPDFビューアーが立ち上がり、ページ指定も100%効きます
+        window.open(url, '_blank');
+      } else {
+        // PCの場合：今まで通り右パネルで表示
+        const frame = document.getElementById("pdfFrame");
+        frame.src = "about:blank";
+        setTimeout(() => {
+          frame.src = url;
+          document.body.classList.add("pdf-open");
+        }, 50);
+      }
     }
 
     function closePdfPanel() {

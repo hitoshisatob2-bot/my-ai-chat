@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Streaming Voice</title>
+  <title>kubota WSM AI - Voice Final</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
@@ -54,69 +54,61 @@
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-    /* --- 読み上げコア --- */
-    let lastSpokenText = "";
-    
-    function speakImmediate(text) {
-      if (!text || text === lastSpokenText) return;
-      
-      // 前回の続きから読み上げるために差分を抽出
-      let textToSpeak = text;
-      if (text.startsWith(lastSpokenText)) {
-        textToSpeak = text.substring(lastSpokenText.length);
-      }
-      
-      // 読み上げに適さない記号を除去
-      const cleanText = textToSpeak.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').trim();
-      if (!cleanText) return;
+    /* --- 読み上げ機能 --- */
+    function speakText(text) {
+      if (!text || text.length < 5) return;
+      window.speechSynthesis.cancel();
+      // 読み上げノイズ（引用番号、記号、改行）を掃除
+      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#]/g, '').replace(/\n/g, '。').trim();
 
       const uttr = new SpeechSynthesisUtterance(cleanText);
       uttr.lang = 'ja-JP';
       uttr.rate = 1.2;
-      
       uttr.onstart = () => { document.getElementById('speech-control').style.display = 'flex'; };
-      uttr.onend = () => { 
-        if (!window.speechSynthesis.speaking) document.getElementById('speech-control').style.display = 'none'; 
-      };
-      
+      uttr.onend = () => { document.getElementById('speech-control').style.display = 'none'; };
       window.speechSynthesis.speak(uttr);
-      lastSpokenText = text;
     }
 
     document.getElementById('stop-speech-btn').addEventListener('click', () => {
       window.speechSynthesis.cancel();
-      lastSpokenText = ""; // リセット
       document.getElementById('speech-control').style.display = 'none';
     });
 
-    /* --- シャドウDOM探索 & 回答検知 --- */
+    /* --- 回答検知ロジック（ポーリング＋Shadow DOM全スキャン） --- */
     function startResponseObserver() {
       const messenger = document.getElementById('messenger');
-      if (!messenger.shadowRoot) return;
+      let lastTotalTextLength = 0;
 
-      const observer = new MutationObserver(() => {
-        // 全てのテキスト要素をスキャン（特定のクラスに依存しない方法）
+      // MutationObserverよりも確実な「定期巡回（ポーリング）」を併用
+      setInterval(() => {
+        if (!messenger.shadowRoot) return;
+
+        // Shadow DOM内のテキストをすべて結合
         const walker = document.createTreeWalker(messenger.shadowRoot, NodeFilter.SHOW_TEXT, null, false);
-        let allText = "";
+        let currentFullText = "";
         let node;
         while(node = walker.nextNode()) {
-          // AIの回答エリアに近いテキストのみを収集（親要素のロール等で判定）
-          const parent = node.parentElement;
-          if (parent && (parent.closest('.message.agent') || parent.closest('.agent-message') || parent.closest('[role="listitem"]'))) {
-            allText += node.textContent;
+          // AIの回答エリアに近いテキスト（親の属性などで判定）
+          if (node.parentElement && (node.parentElement.closest('[role="listitem"]') || node.parentElement.closest('.agent'))) {
+            currentFullText += node.textContent;
           }
         }
 
-        // 回答が更新されたら、少しずつ読み上げる
-        if (allText.length > lastSpokenText.length + 5) {
+        // テキストが増えていて、かつ「...（入力中）」が出ていない時に読み上げ
+        // 「...」の有無はコンポーネント内の .typing クラス等で判定可能だが、
+        // 今回は「テキストの更新が3秒止まったら確定」とみなすロジックを採用
+        if (currentFullText.length > lastTotalTextLength) {
+          lastTotalTextLength = currentFullText.length;
+          
           clearTimeout(window.speechTimer);
           window.speechTimer = setTimeout(() => {
-            speakImmediate(allText);
-          }, 800); // 文節が区切れるのを少し待つ
+             // 最後のメッセージ（最新の回答）だけを抽出して読み上げ
+             const messages = currentFullText.split(/\n\n|(?=ユーザー:)/); 
+             const latestResponse = messages[messages.length - 1];
+             speakText(latestResponse);
+          }, 2500); // 回答が完全に終わるのを待つ
         }
-      });
-
-      observer.observe(messenger.shadowRoot, { childList: true, subtree: true, characterData: true });
+      }, 1000); // 1秒ごとにチェック
     }
 
     /* --- 初期化 --- */
@@ -132,7 +124,7 @@
           startResponseObserver();
           clearInterval(checkReady);
         }
-      }, 500);
+      }, 1000);
 
       window.addEventListener("click", (e) => {
         const path = e.composedPath();

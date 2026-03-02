@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Voice Fixed</title>
+  <title>kubota WSM AI - Final Voice Reader</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
@@ -13,7 +13,6 @@
     .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
     .chatArea { flex: 1; position: relative; }
     
-    /* マイクボタン */
     #custom-mic-btn {
       position: fixed; bottom: 15px; right: 65px; z-index: 2147483647;
       width: 44px; height: 44px; border: none; background: #f0f0f0;
@@ -22,15 +21,11 @@
     }
     #custom-mic-btn.recording { background: #ff4b4b; color: white; }
     
-    /* 読み上げコントロール */
     #speech-control {
       position: fixed; bottom: 70px; right: 15px; z-index: 2147483647;
       display: none; align-items: center; gap: 8px;
     }
-    .voice-btn {
-      padding: 8px 16px; background: rgba(0,0,0,0.8); color: white;
-      border-radius: 20px; border: none; font-size: 12px; cursor: pointer;
-    }
+    .voice-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; cursor: pointer; }
 
     .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: all 300ms ease; }
     body.pdf-open .pdfPanel { width: max(var(--panel-min), var(--panel-width)); }
@@ -46,90 +41,69 @@
           <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
         </chat-messenger-container>
       </chat-messenger>
-      
       <button id="custom-mic-btn">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
-
-      <div id="speech-control">
-        <button id="stop-speech-btn" class="voice-btn">停止 ■</button>
-      </div>
+      <div id="speech-control"><button id="stop-speech-btn" class="voice-btn">読み上げ停止 ■</button></div>
     </div>
-    
-    <aside class="pdfPanel">
-      <div class="pdfPanelInner">
-        <div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;">
-          <span style="font-size:12px;">引用元</span>
-          <button onclick="document.body.classList.remove('pdf-open')">閉じる</button>
-        </div>
-        <iframe id="pdfFrame" style="flex:1; border:0;"></iframe>
-      </div>
-    </aside>
+    <aside class="pdfPanel"><div class="pdfPanelInner"><div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;"><span style="font-size:12px;">引用元</span><button onclick="document.body.classList.remove('pdf-open')">閉じる</button></div><iframe id="pdfFrame" style="flex:1; border:0;"></iframe></div></aside>
   </div>
 
   <script>
     const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
 
-    /* --- 読み上げエンジン --- */
-    const speechControl = document.getElementById('speech-control');
-    const stopBtn = document.getElementById('stop-speech-btn');
-
+    /* --- 読み上げ機能 --- */
     function speakText(text) {
+      if (!text || text.length < 5) return;
       window.speechSynthesis.cancel();
-      // [1]などの引用タグを消去
-      const cleanText = text.replace(/\[\d+\]/g, '').trim();
-      if (!cleanText) return;
-
+      // 読み上げの邪魔になる記号を徹底削除
+      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[\n\r]/g, '。').replace(/[*#]/g, '').trim();
+      
       const uttr = new SpeechSynthesisUtterance(cleanText);
       uttr.lang = 'ja-JP';
       uttr.rate = 1.2;
-      
-      uttr.onstart = () => { speechControl.style.display = 'flex'; };
-      uttr.onend = () => { speechControl.style.display = 'none'; };
-      uttr.onerror = () => { speechControl.style.display = 'none'; };
-
+      uttr.onstart = () => { document.getElementById('speech-control').style.display = 'flex'; };
+      uttr.onend = () => { document.getElementById('speech-control').style.display = 'none'; };
       window.speechSynthesis.speak(uttr);
     }
 
-    stopBtn.addEventListener('click', () => {
+    document.getElementById('stop-speech-btn').addEventListener('click', () => {
       window.speechSynthesis.cancel();
-      speechControl.style.display = 'none';
+      document.getElementById('speech-control').style.display = 'none';
     });
 
-    /* --- 回答検知 (Shadow DOM 深層スキャン) --- */
+    /* --- 回答検知ロジック（強化版） --- */
     function startResponseObserver() {
       const messenger = document.getElementById('messenger');
-      if (!messenger || !messenger.shadowRoot) return;
-
-      // MutationObserverでShadow DOM内部の変化を監視
+      
       const observer = new MutationObserver(() => {
-        // AIの回答テキストが含まれる可能性のある全要素を取得
-        // chat-messengerの内部構造に依存するため、複数のセレクタで試行
-        const agentMessages = messenger.shadowRoot.querySelectorAll('.message.agent, .agent-message, [role="log"] .agent');
+        // Shadow DOMの中から「AIの回答文」が含まれる可能性のある全要素を総当たりで探す
+        const root = messenger.shadowRoot;
+        // 回答テキストが入る標準的なクラス名を広くカバー
+        const elements = root.querySelectorAll('.message-content, .text-content, [role="listitem"]');
         
-        if (agentMessages.length > 0) {
-          const latest = agentMessages[agentMessages.length - 1];
-          // まだ読み上げていない、かつ中身がある場合
-          if (latest.innerText && !latest.dataset.read) {
-            // 文字がパラパラ出ている間（ストリーミング）は待機し、
-            // 内容が確定した（あるいは一定時間経過した）ら読み上げ
-            clearTimeout(latest.readTimer);
-            latest.readTimer = setTimeout(() => {
-              speakText(latest.innerText);
-              latest.dataset.read = "true";
-            }, 1500); 
+        elements.forEach(el => {
+          // ユーザーの質問ではなく「AI側の回答」であることを判定（左側のメッセージなど）
+          // かつ、まだ読み上げていない（data-readがない）もの
+          if (el.innerText && el.innerText.length > 10 && !el.dataset.read) {
+            // ストリーミング（文字送り）が止まるのを待つ
+            clearTimeout(el.timer);
+            el.timer = setTimeout(() => {
+              // 最終確認：他のメッセージと重複していないか
+              speakText(el.innerText);
+              el.dataset.read = "true";
+            }, 2000); // 2秒間変化がなければ「確定」とみなす
           }
-        }
+        });
       });
 
       observer.observe(messenger.shadowRoot, { childList: true, subtree: true });
     }
 
-    /* --- 初期化処理 --- */
+    /* --- 初期化 --- */
     window.addEventListener("DOMContentLoaded", () => {
-      // 300msごとにSDKとShadow DOMの準備をチェック
       const checkReady = setInterval(() => {
         const messenger = document.getElementById('messenger');
         if (window.chatSdk && messenger && messenger.shadowRoot) {
@@ -138,7 +112,6 @@
             tokenBroker: { enableTokenBroker: true },
             pdfPreview: { enablePdfPreview: true }
           }));
-          
           startResponseObserver();
           clearInterval(checkReady);
         }
@@ -150,25 +123,19 @@
         const a = path.find(el => el.tagName === "A");
         if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
           e.preventDefault();
-          if (window.innerWidth <= 900) {
-            window.open(a.href, '_blank');
-          } else {
-            document.getElementById('pdfFrame').src = a.href;
-            document.body.classList.add('pdf-open');
-          }
+          if (window.innerWidth <= 900) { window.open(a.href, '_blank'); } 
+          else { document.getElementById('pdfFrame').src = a.href; document.body.classList.add('pdf-open'); }
         }
       }, true);
     });
 
-    /* --- 音声入力 (既存) --- */
+    /* --- 音声入力 --- */
     const micBtn = document.getElementById('custom-mic-btn');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
-      micBtn.addEventListener('click', () => { 
-        try { recognition.start(); } catch(e) { recognition.stop(); } 
-      });
+      micBtn.addEventListener('click', () => { try { recognition.start(); } catch(e) { recognition.stop(); } });
       recognition.onstart = () => micBtn.classList.add('recording');
       recognition.onend = () => micBtn.classList.remove('recording');
       recognition.onresult = (event) => {

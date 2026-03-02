@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Voice Pro</title>
+  <title>kubota WSM AI - Final Pro</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
@@ -19,8 +19,8 @@
       display: flex; align-items: center; justify-content: center; flex-direction: column;
     }
     .start-btn {
-      padding: 25px 50px; font-size: 22px; font-weight: bold;
-      cursor: pointer; background: #007bff; color: white; border: none; border-radius: 50px;
+      padding: 25px 50px; font-size: 22px; font-weight: bold; cursor: pointer;
+      background: #007bff; color: white; border: none; border-radius: 50px;
       box-shadow: 0 10px 20px rgba(0,123,255,0.3);
     }
 
@@ -34,7 +34,7 @@
     #custom-mic-btn.recording { background: #ff4b4b !important; color: white; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,75,75,0.7); } 70% { box-shadow: 0 0 0 10px rgba(255,75,75,0); } 100% { box-shadow: 0 0 0 0 rgba(255,75,75,0); } }
 
-    /* 停止ボタン & トースト */
+    /* 停止ボタン */
     #speech-control { position: fixed; bottom: 70px; right: 15px; z-index: 2147483647; display: none; }
     .stop-btn { padding: 8px 16px; background: rgba(0,0,0,0.8); color: white; border-radius: 20px; border: none; font-size: 12px; cursor: pointer; }
 
@@ -46,3 +46,180 @@
 <body>
 
   <div id="init-voice-overlay">
+    <button class="start-btn" onclick="activateAndStart()">音声を有効にして開始</button>
+    <p style="margin-top:20px; color:#666;">※ボタンを押すとチャット画面に切り替わります</p>
+  </div>
+
+  <div class="app">
+    <div class="chatArea">
+      <chat-messenger id="messenger" allow-citations="true" style="width:100%; height:100%;">
+        <chat-messenger-container chat-title="kubota-wsm-ai">
+          <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
+        </chat-messenger-container>
+      </chat-messenger>
+      
+      <button id="custom-mic-btn" title="音声入力">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      </button>
+
+      <div id="speech-control">
+        <button class="stop-btn" onclick="stopSpeaking()">読み上げ停止 ■</button>
+      </div>
+    </div>
+    <aside class="pdfPanel">
+      <div style="height:100%; display:flex; flex-direction:column;">
+        <div style="height:48px; display:flex; align-items:center; padding:0 10px; border-bottom:1px solid #ddd; justify-content:space-between;">
+          <span style="font-size:12px; font-weight:bold;">引用元</span>
+          <button onclick="document.body.classList.remove('pdf-open')" style="cursor:pointer; border:none; background:none;">✕ 閉じる</button>
+        </div>
+        <iframe id="pdfFrame" style="flex:1; border:0;"></iframe>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/985287da-6040-4564-bc29-53ccd6a0b853/deployments/a5cff52b-8173-46dd-8057-7ce28af81a21";
+    let voiceEnabled = false;
+    let ttsTimer = null;
+
+    // 1. 起動処理：ユーザーのクリックで音声を解禁
+    function activateAndStart() {
+      document.getElementById('init-voice-overlay').style.display = 'none';
+      voiceEnabled = true;
+      const uttr = new SpeechSynthesisUtterance("準備ができました。");
+      uttr.lang = 'ja-JP';
+      window.speechSynthesis.speak(uttr);
+      startMonitoring(); // 監視開始
+    }
+
+    // 2. 読み上げ実行
+    function speak(text) {
+      if (!voiceEnabled || !text) return;
+      window.speechSynthesis.cancel();
+      // 記号や改行の除去
+      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#_]/g, '').replace(/\n/g, '。').trim();
+      if (cleanText.length < 2) return;
+
+      const uttr = new SpeechSynthesisUtterance(cleanText);
+      uttr.lang = 'ja-JP';
+      uttr.rate = 1.1; // 速度を少し自然に
+      uttr.onstart = () => { document.getElementById('speech-control').style.display = 'block'; };
+      uttr.onend = () => { document.getElementById('speech-control').style.display = 'none'; };
+      window.speechSynthesis.speak(uttr);
+    }
+
+    function stopSpeaking() {
+      window.speechSynthesis.cancel();
+      document.getElementById('speech-control').style.display = 'none';
+    }
+
+    // 3. 最新の回答をShadow DOMから見つける（再帰的スキャン）
+    function findLatestAgentMessage(root) {
+      if (!root) return null;
+      // Google SDKが使うメッセージ要素のセレクタを網羅
+      const messages = Array.from(root.querySelectorAll('.message.agent, [role="listitem"], .agent-message'));
+      if (messages.length > 0) return messages[messages.length - 1];
+
+      // Shadow DOMの中を掘り下げる
+      const hosts = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
+      for (const h of hosts) {
+        const found = findLatestAgentMessage(h.shadowRoot);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    // 4. 定期監視ロジック（回答終了を検知）
+    function startMonitoring() {
+      const messenger = document.getElementById('messenger');
+      setInterval(() => {
+        if (!messenger || !messenger.shadowRoot) return;
+        const latest = findLatestAgentMessage(messenger.shadowRoot);
+        
+        if (latest && !latest.dataset.spoken) {
+          const text = latest.innerText.trim();
+          // 文字が増えている最中（...が含まれるなど）は待機
+          if (text.length > 5 && !text.includes('...') && !text.endsWith('…')) {
+            clearTimeout(ttsTimer);
+            // 変化が止まって1.5秒後に読み上げ
+            ttsTimer = setTimeout(() => {
+              if (latest.innerText.trim() === text) {
+                latest.dataset.spoken = "true";
+                speak(text);
+              }
+            }, 1500);
+          }
+        }
+      }, 1000);
+    }
+
+    // 5. 音声入力（マイク機能）
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      const micBtn = document.getElementById('custom-mic-btn');
+
+      micBtn.onclick = () => {
+        if (micBtn.classList.contains('recording')) {
+          recognition.stop();
+        } else {
+          recognition.start();
+        }
+      };
+
+      recognition.onstart = () => micBtn.classList.add('recording');
+      recognition.onend = () => micBtn.classList.remove('recording');
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        fillInputAndSend(text);
+      };
+    }
+
+    function fillInputAndSend(text) {
+      const messenger = document.getElementById('messenger');
+      function search(root) {
+        const input = root.querySelector('textarea, input:not([type="hidden"])');
+        if (input) {
+          input.value = text;
+          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+          setTimeout(() => {
+            const sendBtn = root.querySelector('button[aria-label*="Send"], button[aria-label*="送信"], .send-button');
+            if (sendBtn) sendBtn.click();
+          }, 300);
+          return true;
+        }
+        const hosts = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
+        for (const h of hosts) { if (search(h.shadowRoot)) return true; }
+        return false;
+      }
+      search(messenger.shadowRoot);
+    }
+
+    // 6. SDKの初期化
+    window.addEventListener('DOMContentLoaded', () => {
+      const check = setInterval(() => {
+        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
+          chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
+            deploymentName: DEPLOYMENT,
+            tokenBroker: { enableTokenBroker: true },
+            pdfPreview: { enablePdfPreview: true }
+          }));
+          clearInterval(check);
+        }
+      }, 1000);
+
+      // PDFプレビュー制御
+      window.addEventListener('click', (e) => {
+        const path = e.composedPath();
+        const a = path.find(el => el.tagName === 'A');
+        if (a && a.href.includes('storage.googleapis.com')) {
+          e.preventDefault();
+          document.getElementById('pdfFrame').src = a.href;
+          document.body.classList.add('pdf-open');
+        }
+      }, true);
+    });
+  </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI.c - Final Pro</title>
+  <title>kubota WSM AI - Final Pro</title>
 
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
@@ -92,6 +92,8 @@
       const uttr = new SpeechSynthesisUtterance("準備ができました。");
       uttr.lang = 'ja-JP';
       window.speechSynthesis.speak(uttr);
+
+      startObserver();
     }
 
     function speak(text) {
@@ -118,4 +120,123 @@
         document.getElementById('speech-control').style.display = 'none';
       };
 
-      window.speechSynthesis
+      window.speechSynthesis.speak(uttr);
+    }
+
+    function stopSpeaking() {
+      window.speechSynthesis.cancel();
+      document.getElementById('speech-control').style.display = 'none';
+    }
+
+    /* -----------------------------
+       MutationObserver で AI の回答を検知
+    ----------------------------- */
+    function startObserver() {
+      const messenger = document.getElementById("messenger");
+
+      const shadow = messenger.shadowRoot;
+      if (!shadow) return;
+
+      const list = shadow.querySelector('[role="list"]');
+      if (!list) return;
+
+      const observer = new MutationObserver(() => {
+        const items = list.querySelectorAll('[role="listitem"]');
+        if (items.length === 0) return;
+
+        const last = items[items.length - 1];
+        const text = last.innerText.trim();
+
+        if (!last.dataset.spoken && text.length > 5) {
+          last.dataset.spoken = "true";
+          speak(text);
+        }
+      });
+
+      observer.observe(list, { childList: true, subtree: true });
+    }
+
+    /* -----------------------------
+       音声入力
+    ----------------------------- */
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+
+      const micBtn = document.getElementById('custom-mic-btn');
+
+      micBtn.onclick = () => {
+        if (micBtn.classList.contains('recording')) {
+          recognition.stop();
+        } else {
+          recognition.start();
+        }
+      };
+
+      recognition.onstart = () => micBtn.classList.add('recording');
+      recognition.onend = () => micBtn.classList.remove('recording');
+
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        fillInputAndSend(text);
+      };
+    }
+
+    function fillInputAndSend(text) {
+      const messenger = document.getElementById('messenger');
+
+      function search(root) {
+        const input = root.querySelector('textarea, input:not([type="hidden"])');
+        if (input) {
+          input.value = text;
+          input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+          setTimeout(() => {
+            const sendBtn = root.querySelector('button[aria-label*="Send"], button[aria-label*="送信"], .send-button');
+            if (sendBtn) sendBtn.click();
+          }, 300);
+
+          return true;
+        }
+
+        const hosts = Array.from(root.querySelectorAll('*')).filter(n => n.shadowRoot);
+        for (const h of hosts) {
+          if (search(h.shadowRoot)) return true;
+        }
+        return false;
+      }
+
+      search(messenger.shadowRoot);
+    }
+
+    /* -----------------------------
+       SDK 初期化
+    ----------------------------- */
+    window.addEventListener('DOMContentLoaded', () => {
+      const check = setInterval(() => {
+        if (window.chatSdk && document.getElementById('messenger').shadowRoot) {
+          chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
+            deploymentName: DEPLOYMENT,
+            tokenBroker: { enableTokenBroker: true },
+            pdfPreview: { enablePdfPreview: true }
+          }));
+          clearInterval(check);
+        }
+      }, 1000);
+
+      window.addEventListener('click', (e) => {
+        const path = e.composedPath();
+        const a = path.find(el => el.tagName === 'A');
+        if (a && a.href.includes('storage.googleapis.com')) {
+          e.preventDefault();
+          document.getElementById('pdfFrame').src = a.href;
+          document.body.classList.add('pdf-open');
+        }
+      }, true);
+    });
+  </script>
+
+</body>
+</html>

@@ -38,7 +38,7 @@
       100% { box-shadow: 0 0 0 14px rgba(255,75,75,0); }
     }
 
-    /* ─── 音声認識オーバーレイ（認識中テキスト表示 + 送信ボタン） ─── */
+    /* ─── 音声認識オーバーレイ（認識中テキスト表示 + キャンセル） ─── */
     #voice-overlay {
       display: none;
       position: fixed; inset: 0; z-index: 2147483646;
@@ -68,13 +68,8 @@
     }
     #voice-text:empty::before { content: attr(data-placeholder); color: #bbb; }
     #voice-actions { display: flex; gap: 10px; }
-    #voice-send-btn {
-      flex: 1; padding: 11px; background: #1a73e8; color: #fff;
-      border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
-      cursor: pointer;
-    }
-    #voice-send-btn:disabled { background: #ccc; }
     #voice-cancel-btn {
+      flex: 1;
       padding: 11px 18px; background: #f5f5f5; color: #555;
       border: none; border-radius: 10px; font-size: 15px; cursor: pointer;
     }
@@ -100,6 +95,7 @@
         </svg>
       </button>
     </div>
+
     <aside class="pdfPanel">
       <div class="pdfPanelInner">
         <div class="pdfHeader">
@@ -118,7 +114,6 @@
       <div id="voice-text" contenteditable="true" data-placeholder="音声認識中..."></div>
       <div id="voice-actions">
         <button id="voice-cancel-btn" onclick="cancelVoice()">キャンセル</button>
-        <button id="voice-send-btn" disabled onclick="sendVoiceText()">送信</button>
       </div>
     </div>
   </div>
@@ -146,11 +141,12 @@
     /* =====================================================
        Shadow DOM ユーティリティ
     ===================================================== */
-    /** Shadow DOM を再帰的に探索して最初にマッチした要素を返す */
     function deepQuery(root, selector) {
-      const el = root.querySelector(selector);
+      if (!root) return null;
+      const el = root.querySelector?.(selector);
       if (el) return el;
-      for (const node of root.querySelectorAll('*')) {
+      const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      for (const node of all) {
         if (node.shadowRoot) {
           const found = deepQuery(node.shadowRoot, selector);
           if (found) return found;
@@ -159,13 +155,12 @@
       return null;
     }
 
-    /** Shadow DOM 内の入力要素（textarea / input / contenteditable）を全種類探す */
     function findInputElement(searchRoot) {
       const selectors = [
         'textarea',
         'input[type="text"]',
-        '[contenteditable="true"]',
         '[role="textbox"]',
+        '[contenteditable="true"]',
         '[contenteditable]',
         'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"])'
       ];
@@ -176,27 +171,31 @@
       return null;
     }
 
-    /** React/LitElement 対応のネイティブ値セット */
     function setNativeValue(input, value) {
-      if (input.isContentEditable) {
-        // contenteditable の場合
-        input.focus();
-        input.textContent = value;
-        input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: value }));
-        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-      } else {
-        // input / textarea の場合
-        const proto = (input.tagName === 'TEXTAREA')
-          ? window.HTMLTextAreaElement.prototype
-          : window.HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-        if (setter) setter.call(input, value); else input.value = value;
-        input.dispatchEvent(new Event('input',  { bubbles: true, composed: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      if (!input) return false;
+      try {
+        if (input.isContentEditable) {
+          input.focus();
+          input.textContent = value;
+          input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: value }));
+          input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+          return true;
+        } else {
+          const proto = (input.tagName === 'TEXTAREA')
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+          if (setter) setter.call(input, value); else input.value = value;
+          input.dispatchEvent(new Event('input',  { bubbles: true, composed: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+          return true;
+        }
+      } catch (e) {
+        console.warn('setNativeValue failed:', e);
+        return false;
       }
     }
 
-    /** 送信ボタンを探してクリック、なければ Enter キー送出 */
     function submitMessage(searchRoot, inputEl) {
       const btnSelectors = [
         'button[type="submit"]',
@@ -206,15 +205,16 @@
       ];
       for (const sel of btnSelectors) {
         const btn = deepQuery(searchRoot, sel);
-        if (btn && !btn.disabled) { btn.click(); return; }
+        if (btn && !btn.disabled) { btn.click(); return true; }
       }
       // Enter キーでフォールバック
       ['keydown', 'keypress', 'keyup'].forEach(type =>
-        inputEl.dispatchEvent(new KeyboardEvent(type, {
+        inputEl?.dispatchEvent(new KeyboardEvent(type, {
           key: 'Enter', code: 'Enter', keyCode: 13,
           bubbles: true, composed: true, cancelable: true
         }))
       );
+      return true;
     }
 
     /* =====================================================
@@ -222,13 +222,11 @@
     ===================================================== */
     const voiceOverlay    = document.getElementById('voice-overlay');
     const voiceTextEl     = document.getElementById('voice-text');
-    const voiceSendBtn    = document.getElementById('voice-send-btn');
     const voiceStatusText = document.getElementById('voice-status-text');
     const voiceDot        = document.getElementById('voice-dot');
 
     function openVoiceOverlay() {
       voiceTextEl.textContent = '';
-      voiceSendBtn.disabled = true;
       voiceStatusText.textContent = '聞いています…';
       voiceDot.style.display = 'block';
       voiceOverlay.classList.add('active');
@@ -239,33 +237,89 @@
       if (window._recognition) { try { window._recognition.stop(); } catch(e){} }
     }
 
-    function sendVoiceText() {
-      const text = voiceTextEl.textContent.trim();
-      if (!text) return;
-      voiceOverlay.classList.remove('active');
-      injectTextAndSend(text);
+    /* =====================================================
+       送信（最重要）：API優先で送る
+    ===================================================== */
+    let messengerReady = false;
+    let pendingSendText = null;
+
+    function getMessengerEl() {
+      return document.getElementById('messenger');
     }
 
-    /** 認識テキストをチャット入力欄に注入して送信 */
-    function injectTextAndSend(text) {
-      const messenger   = document.getElementById('messenger');
-      const searchRoot  = messenger?.shadowRoot ?? document;
-      const inputEl     = findInputElement(searchRoot);
+    // 1) まず公開APIっぽいものを探して送る（最優先）
+    function trySendViaPublicApi(text) {
+      const messenger = getMessengerEl();
+      if (!messenger) return false;
 
-      if (!inputEl) {
-        // フォールバック：クリップボードにコピーしてユーザーに通知
-        navigator.clipboard?.writeText(text).catch(() => {});
-        alert('入力欄が見つかりませんでした。\n認識テキスト：\n' + text);
+      // ces-messenger 互換: sessionInput()
+      if (typeof messenger.sessionInput === 'function') {
+        messenger.sessionInput(text);
+        return true;
+      }
+
+      // もし他の名称が提供されていた場合に備えた保険
+      if (typeof messenger.sendMessage === 'function') {
+        messenger.sendMessage(text);
+        return true;
+      }
+
+      return false;
+    }
+
+    // 2) 入力欄に「見えている形で」反映（取れた場合のみ）
+    function tryReflectToInput(text) {
+      const messenger  = getMessengerEl();
+      const searchRoot = messenger?.shadowRoot ?? document;
+      const inputEl    = findInputElement(searchRoot);
+      if (!inputEl) return false;
+      const ok = setNativeValue(inputEl, text);
+      if (ok) inputEl.focus();
+      return ok;
+    }
+
+    // 3) DOM注入→送信（APIが無い/効かない場合のフォールバック）
+    function trySendViaDomInjection(text) {
+      const messenger  = getMessengerEl();
+      const searchRoot = messenger?.shadowRoot ?? document;
+      const inputEl    = findInputElement(searchRoot);
+      if (!inputEl) return false;
+      const ok = setNativeValue(inputEl, text);
+      if (!ok) return false;
+      setTimeout(() => submitMessage(searchRoot, inputEl), 250);
+      return true;
+    }
+
+    // 最終的に「仕様どおり」送る：反映 → 自動検索（送信）
+    function reflectAndAutoSend(text) {
+      const t = (text || '').trim();
+      if (!t) return;
+
+      // messenger がまだ準備中なら、準備完了後に送る
+      if (!messengerReady) {
+        pendingSendText = t;
+        console.log('Messenger not ready yet. queued:', t);
         return;
       }
 
-      setNativeValue(inputEl, text);
-      inputEl.focus();
-      setTimeout(() => submitMessage(searchRoot, inputEl), 300);
+      // まず入力欄に反映（できれば）
+      tryReflectToInput(t);
+
+      // 送信は公開APIを最優先（確実）
+      const sentByApi = trySendViaPublicApi(t);
+      if (sentByApi) return;
+
+      // 公開APIが無ければDOM注入で送信を試す
+      const sentByDom = trySendViaDomInjection(t);
+      if (sentByDom) return;
+
+      // どちらもダメなら、最終フォールバック
+      navigator.clipboard?.writeText(t).catch(() => {});
+      alert('送信に失敗しました（入力欄/送信APIが見つかりません）。\n認識テキストをクリップボードにコピーしました:\n' + t);
     }
 
     /* =====================================================
-       音声認識ロジック（完全修正版）
+       音声認識ロジック（自動反映→自動送信）
     ===================================================== */
     (function setupSpeechRecognition() {
       const micBtn = document.getElementById('custom-mic-btn');
@@ -278,93 +332,76 @@
       }
 
       const recognition = new SR();
-      window._recognition = recognition;   // cancelVoice() からアクセスできるよう公開
+      window._recognition = recognition;
 
-      /* ─ 設定 ─ */
       recognition.lang            = 'ja-JP';
       recognition.continuous      = false;
-      recognition.interimResults  = true;   // ★ モバイルでも途中結果を受け取る
+      recognition.interimResults  = true;
       recognition.maxAlternatives = 1;
 
-      let isRecording  = false;
-      let finalText    = '';
-      let interimText  = '';
+      let isRecording = false;
+      let finalText = '';
+      let interimText = '';
 
-      /* ─ ボタン押下 ─ */
       micBtn.addEventListener('click', () => {
         if (isRecording) {
           recognition.stop();
         } else {
-          finalText   = '';
+          finalText = '';
           interimText = '';
-          try {
-            recognition.start();
-          } catch (e) {
-            console.error('start error:', e);
-            isRecording = false;
-          }
+          try { recognition.start(); }
+          catch (e) { console.error('start error:', e); isRecording = false; }
         }
       });
 
-      /* ─ 開始 ─ */
       recognition.onstart = () => {
         isRecording = true;
         micBtn.classList.add('recording');
         openVoiceOverlay();
       };
 
-      /* ─ 途中結果 & 確定結果（★ 修正：interimResults 対応）─ */
       recognition.onresult = (event) => {
-        interimText = '';
-        finalText   = '';
-
+        // event.results 全体から final/interim を再構成
+        let f = '';
+        let it = '';
         for (let i = 0; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalText += result[0].transcript;
-          } else {
-            interimText += result[0].transcript;
-          }
+          const r = event.results[i];
+          if (r.isFinal) f += r[0].transcript;
+          else it += r[0].transcript;
         }
+        finalText = f;
+        interimText = it;
 
-        const displayText = finalText || interimText;
+        const display = (finalText || interimText || '').trim();
+        voiceTextEl.textContent = display;
 
-        // オーバーレイのテキストをリアルタイム更新
-        voiceTextEl.textContent = displayText;
-        voiceSendBtn.disabled   = !displayText.trim();
-
-        if (finalText) {
-          voiceStatusText.textContent = '認識完了 — 内容を確認して送信';
+        if (finalText.trim()) {
+          voiceStatusText.textContent = '認識完了 — 送信します…';
           voiceDot.style.display = 'none';
         }
       };
 
-      /* ─ 終了 ─ */
       recognition.onend = () => {
         isRecording = false;
         micBtn.classList.remove('recording');
 
-        const recognized = (finalText || interimText).trim();
-
+        const recognized = (finalText || interimText || '').trim();
         if (recognized) {
-          // テキストが取れた → 自動送信（確認オーバーレイに0.6秒表示してから送信）
-          voiceTextEl.textContent   = recognized;
-          voiceSendBtn.disabled     = false;
-          voiceStatusText.textContent = '✅ 送信します…';
-          voiceDot.style.display    = 'none';
+          voiceStatusText.textContent = '✅ 入力欄に反映して検索します…';
+          voiceDot.style.display = 'none';
+
+          // 少しだけ表示してから自動反映→自動送信
           setTimeout(() => {
             voiceOverlay.classList.remove('active');
-            injectTextAndSend(recognized);
-          }, 600);
+            reflectAndAutoSend(recognized);
+          }, 250);
         } else {
-          // テキストが取れなかった → オーバーレイを閉じる
           voiceStatusText.textContent = '音声を検出できませんでした';
           voiceDot.style.display = 'none';
-          setTimeout(() => voiceOverlay.classList.remove('active'), 1500);
+          setTimeout(() => voiceOverlay.classList.remove('active'), 1200);
         }
       };
 
-      /* ─ エラー処理 ─ */
       recognition.onerror = (event) => {
         isRecording = false;
         micBtn.classList.remove('recording');
@@ -387,6 +424,7 @@
        初期化
     ===================================================== */
     window.addEventListener("DOMContentLoaded", () => {
+      // chatSdk 初期化（あなたの元コードを維持）
       const t = setInterval(() => {
         if (window.chatSdk) {
           chatSdk.registerContext(chatSdk.prebuilts.ces.createContext({
@@ -398,10 +436,32 @@
         }
       }, 300);
 
+      // messenger の準備完了検知：可能なイベントを広く拾う
+      const markReady = () => {
+        messengerReady = true;
+        if (pendingSendText) {
+          const text = pendingSendText;
+          pendingSendText = null;
+          reflectAndAutoSend(text);
+        }
+      };
+
+      // ces-messenger 系イベント（公開仕様）
+      window.addEventListener('ces-messenger-loaded', markReady);
+      window.addEventListener('ces-messenger-connected', markReady);
+
+      // chat-messenger 側で別名イベントがある場合の保険（害はない）
+      window.addEventListener('chat-messenger-loaded', markReady);
+      window.addEventListener('chat-messenger-connected', markReady);
+
+      // 最後の保険：一定時間後に ready 扱い（UIが出ていれば多くの場合動く）
+      setTimeout(markReady, 2000);
+
+      // PDFリンクの右パネル表示（元コード維持）
       window.addEventListener("click", (e) => {
         const path = e.composedPath();
-        const a = path.find(el => el.tagName === "A");
-        if (a && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
+        const a = path.find(el => el && el.tagName === "A");
+        if (a && a.href && (a.href.includes(".pdf") || a.href.includes("storage.googleapis.com"))) {
           e.preventDefault();
           e.stopImmediatePropagation();
           openPdfInRightPanel(a.href);

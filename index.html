@@ -3,37 +3,77 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>kubota WSM AI - Stable</title>
+  <title>kubota WSM AI - Final Pro</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
   <style>
-    body { margin: 0; height: 100vh; display: flex; flex-direction: column; }
-    #messenger { flex: 1; --chat-messenger-height: 100%; }
-    /* PDFパネル等のスタイルは動作確認後に戻すため、一旦シンプルにします */
+    :root { --panel-w: min(48vw, 800px); }
+    body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
+    .chat-container { flex: 1; position: relative; }
+    /* PDFプレビュー用パネル */
+    .pdf-panel { width: 0; border-left: 1px solid #ddd; transition: 0.3s; background: #525659; overflow: hidden; }
+    body.pdf-open .pdf-panel { width: var(--panel-w); }
+    iframe { width: 100%; height: 100%; border: none; }
   </style>
 </head>
 <body>
 
-  <chat-messenger id="messenger" url-allowlist="*">
-    <chat-messenger-container 
-      chat-title="kubota WSM AI" 
-      enable-audio-input="true">
-    </chat-messenger-container>
-  </chat-messenger>
+  <div class="chat-container">
+    <chat-messenger id="messenger" url-allowlist="*">
+      <chat-messenger-container 
+        chat-title="kubota WSM AI"
+        enable-audio-input="true">
+      </chat-messenger-container>
+    </chat-messenger>
+  </div>
+
+  <aside class="pdf-panel">
+    <iframe id="pdfFrame"></iframe>
+  </aside>
 
   <script>
+    // 1. SDKの初期化（エラー回避のため最優先で実行）
     window.addEventListener("chat-messenger-loaded", () => {
       chatSdk.registerContext(
         chatSdk.prebuilts.ces.createContext({
-          // あなたの最新IDを正確に反映
           deploymentName: "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618",
-          tokenBroker: {
-            enableTokenBroker: true,
-            enableRecaptcha: false, // エラー回避のため必須
-          },
-        }),
+          tokenBroker: { enableTokenBroker: true, enableRecaptcha: false }
+        })
       );
+      // SDKロード後に読み上げ監視を開始
+      startAutoSpeak();
     });
+
+    // 2. PDFプレビューを右側で開く
+    window.addEventListener('click', (e) => {
+      const path = e.composedPath();
+      const a = path.find(el => el.tagName === 'A');
+      if (a && a.href.includes('storage.googleapis.com')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        document.getElementById('pdfFrame').src = a.href;
+        document.body.classList.add('pdf-open');
+      }
+    }, true);
+
+    // 3. 自動読み上げ（回答が安定してから実行）
+    function startAutoSpeak() {
+      const messenger = document.getElementById('messenger');
+      setInterval(() => {
+        if (!messenger.shadowRoot) return;
+        const msgs = messenger.shadowRoot.querySelectorAll('.message.agent, [role="listitem"]');
+        const latest = msgs[msgs.length - 1];
+        if (latest && !latest.dataset.read) {
+          const text = latest.innerText.trim();
+          if (text.length > 5 && !text.includes('...')) {
+            latest.dataset.read = "true";
+            const uttr = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, ''));
+            uttr.lang = 'ja-JP';
+            window.speechSynthesis.speak(uttr);
+          }
+        }
+      }, 2000);
+    }
   </script>
 </body>
 </html>

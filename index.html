@@ -2,146 +2,34 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>kubota WSM AI - Professional</title>
-
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>kubota WSM AI - Stable</title>
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
-  <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-layout.css">
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
-
   <style>
-    :root { --panel-width: min(48vw, 900px); --divider: rgba(0,0,0,.1); }
-    html, body { height: 100%; margin: 0; overflow: hidden; font-family: sans-serif; background: #f9f9f9; }
-    
-    .app { height: 100vh; width: 100vw; display: flex; align-items: stretch; }
-    .chatArea { flex: 1; position: relative; background: #fff; }
-
-    /* PDFパネル：初期状態は幅0 */
-    .pdfPanel { width: 0; flex: 0 0 auto; border-left: 1px solid var(--divider); background: #fff; overflow: hidden; transition: width 300ms ease; }
-    body.pdf-open .pdfPanel { width: var(--panel-width); }
-    .pdfPanelInner { height: 100%; width: var(--panel-width); display: flex; flex-direction: column; }
-    .pdfHeader { height: 48px; display: flex; align-items: center; padding: 0 15px; background: #fafafa; border-bottom: 1px solid var(--divider); justify-content: space-between; }
-    iframe { flex: 1; border: 0; width: 100%; }
-
-    /* 読み上げ停止ボタン */
-    #speech-control { position: fixed; bottom: 85px; right: 20px; z-index: 2147483647; display: none; }
-    .stop-btn { padding: 10px 20px; background: rgba(0,0,0,0.8); color: white; border-radius: 25px; border: none; cursor: pointer; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-
-    /* 起動オーバーレイ */
-    #init-overlay { position: fixed; inset: 0; background: #fff; z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .start-btn { padding: 20px 40px; font-size: 20px; font-weight: bold; background: #1a73e8; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 20px rgba(26,115,232,0.3); }
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; }
+    #messenger { flex: 1; --chat-messenger-height: 100%; }
+    /* PDFパネル等のスタイルは動作確認後に戻すため、一旦シンプルにします */
   </style>
 </head>
 <body>
 
-  <div id="init-overlay">
-    <button class="start-btn" onclick="startSystem()">AIアシスタントを開始</button>
-    <p style="margin-top:20px; color:#666;">※クリックすると音声とPDFプレビューが有効になります</p>
-  </div>
-
-  <div class="app">
-    <div class="chatArea">
-      <chat-messenger id="messenger" url-allowlist="*">
-        <chat-messenger-container 
-          chat-title="kubota WSM AI" 
-          chat-title-icon="https://gstatic.com/dialogflow-console/common/assets/ccai-favicons/conversational_agents.png"
-          enable-audio-input="true">
-          <chat-messenger-pdf-preview slot="side-panel"></chat-messenger-pdf-preview>
-        </chat-messenger-container>
-      </chat-messenger>
-
-      <div id="speech-control"><button class="stop-btn" onclick="stopSpeaking()">読み上げを止める ■</button></div>
-    </div>
-
-    <aside class="pdfPanel">
-      <div class="pdfPanelInner">
-        <div class="pdfHeader">
-          <span style="font-weight:bold; font-size:14px;">資料プレビュー</span>
-          <button onclick="document.body.classList.remove('pdf-open')" style="cursor:pointer; border:1px solid #ccc; background:#fff; padding:4px 8px; border-radius:4px;">閉じる</button>
-        </div>
-        <iframe id="pdfFrame"></iframe>
-      </div>
-    </aside>
-  </div>
+  <chat-messenger id="messenger" url-allowlist="*">
+    <chat-messenger-container 
+      chat-title="kubota WSM AI" 
+      enable-audio-input="true">
+    </chat-messenger-container>
+  </chat-messenger>
 
   <script>
-    // ★ あなたの最新デプロイメントIDに差し替え済み
-    const DEPLOYMENT_NAME = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
-    let voiceEnabled = false;
-
-    // 1. システム起動
-    function startSystem() {
-      document.getElementById('init-overlay').style.display = 'none';
-      voiceEnabled = true;
-      const u = new SpeechSynthesisUtterance("システムの準備が整いました。ご質問をどうぞ。");
-      u.lang = 'ja-JP';
-      window.speechSynthesis.speak(u);
-      startMonitoring();
-    }
-
-    // 2. 自動読み上げロジック
-    function startMonitoring() {
-      const messenger = document.getElementById('messenger');
-      let ttsTimer = null;
-
-      setInterval(() => {
-        if (!messenger.shadowRoot) return;
-        // 回答メッセージを特定
-        const messages = Array.from(messenger.shadowRoot.querySelectorAll('.message.agent, [role="listitem"]'));
-        const latest = messages[messages.length - 1];
-
-        if (latest && !latest.dataset.spoken) {
-          const text = latest.innerText.trim();
-          // 文字が増えている最中（...）は読み上げない
-          if (text.length > 5 && !text.includes('...') && !text.endsWith('…')) {
-            clearTimeout(ttsTimer);
-            ttsTimer = setTimeout(() => {
-              if (latest.innerText.trim() === text) {
-                latest.dataset.spoken = "true";
-                speakText(text);
-              }
-            }, 1500);
-          }
-        }
-      }, 1000);
-    }
-
-    function speakText(text) {
-      if (!voiceEnabled) return;
-      window.speechSynthesis.cancel();
-      const cleanText = text.replace(/\[\d+\]/g, '').replace(/[*#_]/g, '').replace(/\n/g, '。');
-      const uttr = new SpeechSynthesisUtterance(cleanText);
-      uttr.lang = 'ja-JP';
-      uttr.onstart = () => document.getElementById('speech-control').style.display = 'block';
-      uttr.onend = () => document.getElementById('speech-control').style.display = 'none';
-      window.speechSynthesis.speak(uttr);
-    }
-
-    function stopSpeaking() {
-      window.speechSynthesis.cancel();
-      document.getElementById('speech-control').style.display = 'none';
-    }
-
-    // 3. PDFリンクを検知して右パネルで開く
-    window.addEventListener('click', (e) => {
-      const path = e.composedPath();
-      const a = path.find(el => el.tagName === 'A');
-      if (a && (a.href.includes('storage.googleapis.com') || a.href.includes('.pdf'))) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        document.getElementById('pdfFrame').src = a.href;
-        document.body.classList.add('pdf-open');
-      }
-    }, true);
-
-    // 4. Google SDK 初期化（公式コード準拠）
     window.addEventListener("chat-messenger-loaded", () => {
       chatSdk.registerContext(
         chatSdk.prebuilts.ces.createContext({
-          deploymentName: DEPLOYMENT_NAME,
+          // あなたの最新IDを正確に反映
+          deploymentName: "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618",
           tokenBroker: {
             enableTokenBroker: true,
-            enableRecaptcha: false,
+            enableRecaptcha: false, // エラー回避のため必須
           },
         }),
       );

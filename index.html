@@ -3,22 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>kubota WSM AI - 0317</title>
+  <title>kubota WSM AI</title>
 
-  <!-- 公式の推奨（v1固定ではなく /v1/ ） -->
   <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/themes/chat-messenger-default.css">
   <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/chat-messenger.js"></script>
 
   <style>
-    body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
-    .chat-container { flex: 1; position: relative; }
+    body { margin:0; height:100vh; overflow:hidden; font-family:sans-serif; }
+    #start-screen { position:fixed; inset:0; background:#fff; z-index:99999; display:flex; align-items:center; justify-content:center; }
+    .start-btn { padding: 20px 40px; font-size: 20px; background:#1a73e8; color:#fff; border:0; border-radius:50px; cursor:pointer; }
 
-    .pdf-panel { width: 0; border-left: 1px solid #ddd; transition: 0.3s; background: #fff; overflow: hidden; }
-    body.pdf-open .pdf-panel { width: min(48vw, 800px); }
-    iframe { width: 100%; height: 100%; border: none; }
-
-    #start-screen { position: fixed; inset: 0; background: white; z-index: 99999; display: flex; align-items: center; justify-content: center; }
-    .start-btn { padding: 20px 40px; font-size: 20px; background: #1a73e8; color: white; border: none; border-radius: 50px; cursor: pointer; }
+    /* 重要：表示されない時の最優先対策（サイズ/重なりを強制） */
+    chat-messenger{
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      width: 420px;
+      height: 640px;
+      z-index: 999999;
+      display: block;
+    }
   </style>
 </head>
 
@@ -27,113 +31,67 @@
     <button class="start-btn" onclick="initAndStart()">AIアシスタントを起動する</button>
   </div>
 
-  <div class="chat-container">
-    <chat-messenger id="messenger" url-allowlist="*" language-code="ja" max-query-length="-1">
-      <!-- テキスト + 音声入力（音声→音声認識→送信） -->
-      <chat-messenger-container
-        chat-title="kubota WSM AI"
-        enable-audio-input="true">
-      </chat-messenger-container>
-    </chat-messenger>
-  </div>
-
-  <aside class="pdf-panel">
-    <iframe id="pdfFrame"></iframe>
-  </aside>
+  <chat-messenger id="messenger" language-code="ja" url-allowlist="*" max-query-length="-1">
+    <chat-messenger-container
+      chat-title="kubota WSM AI"
+      enable-audio-input="true">
+    </chat-messenger-container>
+  </chat-messenger>
 
   <script>
-    // あなたの deployment
-    const MY_DEPLOYMENT =
-      "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
+    const MY_DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
 
-    // --- 初期化タイミング対策 ---
-    let chatMessengerLoaded = false;
     let startRequested = false;
-    let contextRegistered = false;
+    let loaded = false;
+    let registered = false;
 
-    // 公式は chat-messenger-loaded を待って registerContext する [Source]
+    // ★重要：ボタン押下前からイベントを待ち受ける（取り逃し防止）
     window.addEventListener("chat-messenger-loaded", () => {
-      chatMessengerLoaded = true;
-      tryRegisterContext();
+      loaded = true;
+      console.log("[chat] chat-messenger-loaded");
+      tryRegister();
     });
 
-    function initAndStart() {
+    function initAndStart(){
       startRequested = true;
-      document.getElementById('start-screen').style.display = 'none';
-      tryRegisterContext();
-
-      // 読み上げは任意（必要なら有効）
-      startAutoTTS();
+      document.getElementById("start-screen").style.display = "none";
+      console.log("[chat] start clicked");
+      tryRegister();
+      attachDebug();
     }
 
-    function tryRegisterContext() {
+    function tryRegister(){
       if (!startRequested) return;
-      if (!chatMessengerLoaded) return;
-      if (contextRegistered) return;
 
-      // ▼重要：Web widget は OAuth2アクセストークンが必要
-      // Token Broker を使うのが公式手順（enableTokenBroker: true）[Source]
+      // 取り逃し対策：すでにロード済みでも動くようにする
+      // loadedがfalseでもchatSdkが生えていれば登録を試みる
+      const sdkReady = (typeof window.chatSdk !== "undefined");
+      if (!loaded && !sdkReady) return;
+      if (registered) return;
+
+      console.log("[chat] registerContext start");
       chatSdk.registerContext(
         chatSdk.prebuilts.ces.createContext({
           deploymentName: MY_DEPLOYMENT,
-          tokenBroker: { enableTokenBroker: true }
+          tokenBroker: { enableTokenBroker: true } // Google-hosted token broker利用 [Source]
         })
       );
-
-      contextRegistered = true;
-      attachDebugListeners();
+      registered = true;
+      console.log("[chat] registerContext done");
     }
 
-    // --- デバッグ（応答が返らない時に原因が見える） ---
-    function attachDebugListeners() {
-      const messenger = document.getElementById('messenger');
+    function attachDebug(){
+      const messenger = document.getElementById("messenger");
 
-      messenger.addEventListener('chat-messenger-error', (e) => {
-        // 公式: chat-messenger-error が飛ぶ [Source]
-        console.error('chat-messenger-error:', e);
-        alert('エラーが発生しました。コンソール(Console)を確認してください。\n'
-          + '多くは「認証(Token Broker/OAuth2)未設定」や「権限不足」です。');
+      // エラーが起きても「真っ白」に見える事があるので必ず拾う [Source]
+      messenger.addEventListener("chat-messenger-error", (e) => {
+        console.error("[chat] chat-messenger-error", e);
+        alert("chat-messenger-error が発生。Console を確認してください。");
       });
-    }
 
-    // --- PDFリンクの検知（現状ロジックを維持） ---
-    window.addEventListener('click', (e) => {
-      const path = e.composedPath();
-      const a = path.find(el => el && el.tagName === 'A');
-      if (a && a.href && a.href.includes('storage.googleapis.com')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        document.getElementById('pdfFrame').src = a.href;
-        document.body.classList.add('pdf-open');
-      }
-    }, true);
-
-    // --- 回答の自動読み上げ（ポーリングより MutationObserver 推奨） ---
-    function startAutoTTS() {
-      const messenger = document.getElementById('messenger');
-      const waitShadow = setInterval(() => {
-        if (!messenger.shadowRoot) return;
-
-        clearInterval(waitShadow);
-
-        const root = messenger.shadowRoot;
-        const observer = new MutationObserver(() => {
-          // 既存コード互換の取り方（DOM構造は将来変わる可能性あり）
-          const msgs = root.querySelectorAll('.message.agent, [role="listitem"]');
-          const latest = msgs[msgs.length - 1];
-          if (!latest || latest.dataset.read) return;
-
-          const text = (latest.innerText || '').trim();
-          if (text.length < 2) return;
-
-          latest.dataset.read = "true";
-          const uttr = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, ''));
-          uttr.lang = 'ja-JP';
-          window.speechSynthesis.speak(uttr);
-        });
-
-        observer.observe(root, { childList: true, subtree: true });
-      }, 200);
+      // 追加：今ページに chatSdk があるか確認
+      console.log("[chat] chatSdk exists:", typeof window.chatSdk !== "undefined");
+      console.log("[chat] customElements(chat-messenger):", customElements.get("chat-messenger"));
     }
   </script>
 </body>

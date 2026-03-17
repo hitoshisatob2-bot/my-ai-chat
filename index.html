@@ -9,21 +9,30 @@
   <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
   
   <style>
-    body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
-    .chat-container { flex: 1; position: relative; }
-    /* PDFパネル */
-    .pdf-panel { width: 0; border-left: 1px solid #ddd; transition: 0.3s; background: #fff; overflow: hidden; }
-    body.pdf-open .pdf-panel { width: min(48vw, 800px); }
+    /* 画面レイアウトの構築 */
+    body { margin: 0; display: flex; height: 100vh; font-family: 'Helvetica Neue', Arial, sans-serif; overflow: hidden; background-color: #f5f5f5; }
+    
+    /* 左側：チャットエリア */
+    .chat-container { flex: 1; position: relative; display: flex; flex-direction: column; background: white; }
+    
+    /* 右側：PDF表示パネル（初期状態は幅0） */
+    .pdf-panel { width: 0; border-left: 1px solid #ddd; transition: 0.4s ease-in-out; background: #525659; overflow: hidden; }
+    body.pdf-open .pdf-panel { width: 50vw; } /* PDFが開くと画面の半分を占める */
+    
     iframe { width: 100%; height: 100%; border: none; }
-    /* 開始オーバーレイ */
-    #start-screen { position: fixed; inset: 0; background: white; z-index: 99999; display: flex; align-items: center; justify-content: center; }
-    .start-btn { padding: 20px 40px; font-size: 20px; background: #1a73e8; color: white; border: none; border-radius: 50px; cursor: pointer; }
+
+    /* 起動時のオーバーレイ */
+    #start-screen { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 99999; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+    .start-btn { padding: 20px 50px; font-size: 1.2rem; background: #1a73e8; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(26,115,232,0.3); transition: 0.3s; }
+    .start-btn:hover { background: #1557b0; transform: translateY(-2px); }
+    .instruction { margin-top: 15px; color: #666; font-size: 0.9rem; }
   </style>
 </head>
 <body>
 
   <div id="start-screen">
     <button class="start-btn" onclick="initAndStart()">AIアシスタントを起動する</button>
+    <p class="instruction">ボタンを押すとチャットを開始します</p>
   </div>
 
   <div class="chat-container">
@@ -33,53 +42,65 @@
   </div>
 
   <aside class="pdf-panel">
-    <iframe id="pdfFrame"></iframe>
+    <iframe id="pdfFrame" title="Document Viewer"></iframe>
   </aside>
 
   <script>
+    // 先ほど取得した最新のデプロイID
     const MY_DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
     
-    // ★ここにコピーした「APIキー」を貼り付けてください
-    const MY_API_KEY = "ここにAPIキーを貼り付け"; 
+    // ★ここをご自身のAPIキーに書き換えてください
+    const MY_API_KEY = "AIzaSyC01Bcy4PWCQ954qbs9KELdcwZkOsr1-TU"; 
 
     function initAndStart() {
+      // オーバーレイを非表示に
       document.getElementById('start-screen').style.display = 'none';
       
+      // Messengerの初期化
       chatSdk.registerContext(
         chatSdk.prebuilts.ces.createContext({
           deploymentName: MY_DEPLOYMENT,
-          apiKey: MY_API_KEY, // APIキー方式を使用
-          tokenBroker: { enableTokenBroker: false } // トークンブローカーは不要になります
+          apiKey: MY_API_KEY,
+          tokenBroker: { enableTokenBroker: false }
         })
       );
 
+      // 自動読み上げの監視を開始
       setInterval(watchResponse, 2000);
     }
 
-    // PDFリンクの検知
+    /* 1. PDFリンクの自動検知機能 */
     window.addEventListener('click', (e) => {
       const path = e.composedPath();
       const a = path.find(el => el.tagName === 'A');
+      // Google Cloud Storage内のPDFリンクを検知
       if (a && a.href.includes('storage.googleapis.com')) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        
+        // PDFを右パネルのiframeに読み込む
         document.getElementById('pdfFrame').src = a.href;
+        // パネルを開く
         document.body.classList.add('pdf-open');
       }
     }, true);
 
-    // 回答の自動読み上げ
+    /* 2. 音声読み上げ機能 (日本語) */
     function watchResponse() {
       const messenger = document.getElementById('messenger');
-      if (!messenger.shadowRoot) return;
+      if (!messenger || !messenger.shadowRoot) return;
+      
       const msgs = messenger.shadowRoot.querySelectorAll('.message.agent, [role="listitem"]');
       const latest = msgs[msgs.length - 1];
+      
       if (latest && !latest.dataset.read) {
         const text = latest.innerText.trim();
+        // まだ読み込み中(省略記号)でない場合に実行
         if (text.length > 5 && !text.includes('...')) {
           latest.dataset.read = "true";
-          const uttr = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, ''));
+          const uttr = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, '')); // [1]などの参照タグを除去
           uttr.lang = 'ja-JP';
+          uttr.rate = 1.0;
           window.speechSynthesis.speak(uttr);
         }
       }

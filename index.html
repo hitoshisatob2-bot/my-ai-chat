@@ -3,32 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>kubota WSM AI - Complete</title>
-  
-  <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
-  <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
-  
+  <title>kubota WSM AI - 0317</title>
+
+  <!-- 公式の推奨（v1固定ではなく /v1/ ） -->
+  <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/themes/chat-messenger-default.css">
+  <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/chat-messenger.js"></script>
+
   <style>
     body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
     .chat-container { flex: 1; position: relative; }
-    /* PDFパネル */
+
     .pdf-panel { width: 0; border-left: 1px solid #ddd; transition: 0.3s; background: #fff; overflow: hidden; }
     body.pdf-open .pdf-panel { width: min(48vw, 800px); }
     iframe { width: 100%; height: 100%; border: none; }
-    /* 開始オーバーレイ */
+
     #start-screen { position: fixed; inset: 0; background: white; z-index: 99999; display: flex; align-items: center; justify-content: center; }
     .start-btn { padding: 20px 40px; font-size: 20px; background: #1a73e8; color: white; border: none; border-radius: 50px; cursor: pointer; }
   </style>
 </head>
-<body>
 
+<body>
   <div id="start-screen">
     <button class="start-btn" onclick="initAndStart()">AIアシスタントを起動する</button>
   </div>
 
   <div class="chat-container">
-    <chat-messenger id="messenger" url-allowlist="*">
-      <chat-messenger-container chat-title="kubota WSM AI" enable-audio-input="true"></chat-messenger-container>
+    <chat-messenger id="messenger" url-allowlist="*" language-code="ja" max-query-length="-1">
+      <!-- テキスト + 音声入力（音声→音声認識→送信） -->
+      <chat-messenger-container
+        chat-title="kubota WSM AI"
+        enable-audio-input="true">
+      </chat-messenger-container>
     </chat-messenger>
   </div>
 
@@ -37,30 +42,65 @@
   </aside>
 
   <script>
-    const MY_DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
-    
-    // ★ここにコピーした「APIキー」を貼り付けてください
-    const MY_API_KEY = "AIzaSyC01Bcy4PWCQ954qbs9KELdcwZkOsr1-TU"; 
+    // あなたの deployment
+    const MY_DEPLOYMENT =
+      "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
+
+    // --- 初期化タイミング対策 ---
+    let chatMessengerLoaded = false;
+    let startRequested = false;
+    let contextRegistered = false;
+
+    // 公式は chat-messenger-loaded を待って registerContext する [Source]
+    window.addEventListener("chat-messenger-loaded", () => {
+      chatMessengerLoaded = true;
+      tryRegisterContext();
+    });
 
     function initAndStart() {
+      startRequested = true;
       document.getElementById('start-screen').style.display = 'none';
-      
+      tryRegisterContext();
+
+      // 読み上げは任意（必要なら有効）
+      startAutoTTS();
+    }
+
+    function tryRegisterContext() {
+      if (!startRequested) return;
+      if (!chatMessengerLoaded) return;
+      if (contextRegistered) return;
+
+      // ▼重要：Web widget は OAuth2アクセストークンが必要
+      // Token Broker を使うのが公式手順（enableTokenBroker: true）[Source]
       chatSdk.registerContext(
         chatSdk.prebuilts.ces.createContext({
           deploymentName: MY_DEPLOYMENT,
-          apiKey: MY_API_KEY, // APIキー方式を使用
-          tokenBroker: { enableTokenBroker: false } // トークンブローカーは不要になります
+          tokenBroker: { enableTokenBroker: true }
         })
       );
 
-      setInterval(watchResponse, 2000);
+      contextRegistered = true;
+      attachDebugListeners();
     }
 
-    // PDFリンクの検知
+    // --- デバッグ（応答が返らない時に原因が見える） ---
+    function attachDebugListeners() {
+      const messenger = document.getElementById('messenger');
+
+      messenger.addEventListener('chat-messenger-error', (e) => {
+        // 公式: chat-messenger-error が飛ぶ [Source]
+        console.error('chat-messenger-error:', e);
+        alert('エラーが発生しました。コンソール(Console)を確認してください。\n'
+          + '多くは「認証(Token Broker/OAuth2)未設定」や「権限不足」です。');
+      });
+    }
+
+    // --- PDFリンクの検知（現状ロジックを維持） ---
     window.addEventListener('click', (e) => {
       const path = e.composedPath();
-      const a = path.find(el => el.tagName === 'A');
-      if (a && a.href.includes('storage.googleapis.com')) {
+      const a = path.find(el => el && el.tagName === 'A');
+      if (a && a.href && a.href.includes('storage.googleapis.com')) {
         e.preventDefault();
         e.stopImmediatePropagation();
         document.getElementById('pdfFrame').src = a.href;
@@ -68,21 +108,32 @@
       }
     }, true);
 
-    // 回答の自動読み上げ
-    function watchResponse() {
+    // --- 回答の自動読み上げ（ポーリングより MutationObserver 推奨） ---
+    function startAutoTTS() {
       const messenger = document.getElementById('messenger');
-      if (!messenger.shadowRoot) return;
-      const msgs = messenger.shadowRoot.querySelectorAll('.message.agent, [role="listitem"]');
-      const latest = msgs[msgs.length - 1];
-      if (latest && !latest.dataset.read) {
-        const text = latest.innerText.trim();
-        if (text.length > 5 && !text.includes('...')) {
+      const waitShadow = setInterval(() => {
+        if (!messenger.shadowRoot) return;
+
+        clearInterval(waitShadow);
+
+        const root = messenger.shadowRoot;
+        const observer = new MutationObserver(() => {
+          // 既存コード互換の取り方（DOM構造は将来変わる可能性あり）
+          const msgs = root.querySelectorAll('.message.agent, [role="listitem"]');
+          const latest = msgs[msgs.length - 1];
+          if (!latest || latest.dataset.read) return;
+
+          const text = (latest.innerText || '').trim();
+          if (text.length < 2) return;
+
           latest.dataset.read = "true";
           const uttr = new SpeechSynthesisUtterance(text.replace(/\[\d+\]/g, ''));
           uttr.lang = 'ja-JP';
           window.speechSynthesis.speak(uttr);
-        }
-      }
+        });
+
+        observer.observe(root, { childList: true, subtree: true });
+      }, 200);
     }
   </script>
 </body>

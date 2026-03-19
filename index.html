@@ -5,296 +5,98 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>kubota WSM AI</title>
 
-  <!-- Google Chat Messenger CSS -->
+  <!-- v1 に統一（公式の埋め込み例） -->
   <link rel="stylesheet"
-    href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
+    href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/themes/chat-messenger-default.css">
+  <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/chat-messenger.js"></script>
 
   <style>
-    /* ===== 基本レイアウト ===== */
     *, *::before, *::after { box-sizing: border-box; }
-    body {
-      margin: 0;
-      display: flex;
-      height: 100vh;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      overflow: hidden;
-      background: #f0f4f8;
-    }
-
-    /* ===== 左：チャットエリア ===== */
-    .chat-container {
-      flex: 1;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      min-width: 0;
-    }
-
-    /* チャットヘッダー */
-    .chat-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 20px;
-      background: #1a73e8;
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      z-index: 10;
-      flex-shrink: 0;
-    }
-    .chat-header img { width: 32px; height: 32px; border-radius: 50%; }
-
-    /* chat-messenger ウェブコンポーネント本体 */
-    chat-messenger {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ===== 右：PDFパネル ===== */
-    .pdf-panel {
-      width: 0;
-      border-left: 2px solid #ddd;
-      transition: width 0.4s ease-in-out;
-      background: #525659;
-      overflow: hidden;
-      flex-shrink: 0;
-      position: relative;
-    }
+    body { margin: 0; display: flex; height: 100vh; font-family: 'Helvetica Neue', Arial, sans-serif; overflow: hidden; background: #f0f4f8; }
+    .chat-container { flex: 1; position: relative; display: flex; flex-direction: column; background: #fff; min-width: 0; }
+    .chat-header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:#1a73e8; color:#fff; font-size:1rem; font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,0.15); z-index:10; flex-shrink:0; }
+    chat-messenger { flex: 1; display:flex; flex-direction:column; overflow:hidden; }
+    .pdf-panel { width:0; border-left:2px solid #ddd; transition: width 0.4s ease-in-out; background:#525659; overflow:hidden; flex-shrink:0; position:relative; }
     body.pdf-open .pdf-panel { width: 50vw; }
-    .pdf-close-btn {
-      position: absolute;
-      top: 8px; right: 8px;
-      z-index: 20;
-      background: rgba(255,255,255,0.15);
-      border: none;
-      color: #fff;
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 1.1rem;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.2s;
-    }
-    .pdf-close-btn:hover { background: rgba(255,255,255,0.3); }
-    .pdf-panel iframe { width: 100%; height: 100%; border: none; }
-
-    /* ===== 起動スクリーン ===== */
-    #start-screen {
-      position: fixed; inset: 0;
-      background: linear-gradient(135deg, #e8f0fe 0%, #f8f9ff 100%);
-      z-index: 99999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-    }
-    .start-logo {
-      font-size: 2.4rem;
-      font-weight: 800;
-      color: #1a73e8;
-      letter-spacing: -1px;
-    }
-    .start-sub {
-      font-size: 1rem;
-      color: #444;
-      margin: 0;
-    }
-    .start-btn {
-      margin-top: 16px;
-      padding: 18px 52px;
-      font-size: 1.1rem;
-      font-weight: 600;
-      background: #1a73e8;
-      color: #fff;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      box-shadow: 0 4px 18px rgba(26,115,232,0.35);
-      transition: all 0.25s;
-    }
-    .start-btn:hover { background: #1557b0; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(26,115,232,0.4); }
-    .start-hint { font-size: 0.82rem; color: #888; }
-
-    /* ===== 音声入力ボタン（カスタム） ===== */
-    #voice-bar {
-      position: absolute;
-      bottom: 72px;      /* チャット入力欄の上 */
-      right: 16px;
-      z-index: 50;
-      display: none;    /* 起動後に表示 */
-    }
-    #voice-btn {
-      width: 52px; height: 52px;
-      border-radius: 50%;
-      background: #1a73e8;
-      border: none;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 3px 12px rgba(26,115,232,0.4);
-      transition: all 0.2s;
-      outline: none;
-    }
-    #voice-btn:hover { background: #1557b0; transform: scale(1.06); }
-    #voice-btn.listening {
-      background: #ea4335;
-      box-shadow: 0 3px 12px rgba(234,67,53,0.5);
-      animation: pulse 1s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%,100% { transform: scale(1); }
-      50%      { transform: scale(1.12); }
-    }
-    #voice-btn svg { width: 22px; height: 22px; fill: #fff; }
-
-    /* 認識テキスト表示 */
-    #recognizing-text {
-      position: absolute;
-      bottom: 132px;
-      right: 16px;
-      background: rgba(0,0,0,0.75);
-      color: #fff;
-      font-size: 0.82rem;
-      padding: 6px 12px;
-      border-radius: 8px;
-      max-width: 260px;
-      word-break: break-all;
-      display: none;
-      z-index: 50;
-    }
-
-    /* ===== トースト通知 ===== */
-    #toast {
-      position: fixed;
-      bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: #323232;
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 0.88rem;
-      z-index: 99998;
-      opacity: 0;
-      transition: opacity 0.3s;
-      pointer-events: none;
-      white-space: nowrap;
-    }
+    .pdf-close-btn { position:absolute; top:8px; right:8px; z-index:20; background:rgba(255,255,255,0.15); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .pdf-panel iframe { width:100%; height:100%; border:none; }
+    #start-screen { position:fixed; inset:0; background: linear-gradient(135deg, #e8f0fe 0%, #f8f9ff 100%); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+    .start-btn { margin-top:16px; padding:18px 52px; font-size:1.1rem; font-weight:600; background:#1a73e8; color:#fff; border:none; border-radius:50px; cursor:pointer; }
+    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#323232; color:#fff; padding:10px 20px; border-radius:8px; font-size:0.88rem; z-index:99998; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
     #toast.show { opacity: 1; }
   </style>
 </head>
-<body>
 
-  <!-- ====== 起動スクリーン ====== -->
+<body>
   <div id="start-screen">
-    <div class="start-logo">🔧 kubota WSM AI</div>
-    <p class="start-sub">整備マニュアル AIアシスタント</p>
+    <div style="font-size:2.0rem;font-weight:800;color:#1a73e8;">kubota WSM AI</div>
+    <div style="color:#444;">整備マニュアル AIアシスタント</div>
     <button class="start-btn" onclick="startApp()">AIアシスタントを起動する</button>
-    <p class="start-hint">テキスト入力・音声入力に対応しています</p>
+    <div style="font-size:0.85rem;color:#888;">テキスト入力・音声入力に対応</div>
   </div>
 
-  <!-- ====== チャットエリア ====== -->
   <div class="chat-container">
-    <!-- ヘッダー -->
-    <div class="chat-header">
-      🔧 kubota WSM AI　整備マニュアル検索
-    </div>
+    <div class="chat-header">kubota WSM AI　整備マニュアル検索</div>
 
-    <!-- Google Chat Messenger コンポーネント -->
-    <chat-messenger id="messenger">
+    <chat-messenger id="messenger" language-code="ja" url-allowlist="*" max-query-length="-1">
       <chat-messenger-container
         chat-title="kubota WSM AI"
         enable-audio-input="true"
         placeholder="質問を入力してください…">
       </chat-messenger-container>
     </chat-messenger>
-
-    <!-- カスタム音声入力ボタン -->
-    <div id="voice-bar">
-      <button id="voice-btn" title="音声で質問する" onclick="toggleVoice()">
-        <!-- マイクアイコン -->
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V20H9v2h6v-2h-2v-2.08A7 7 0 0 0 19 11h-2z"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- 認識中テキスト -->
-    <div id="recognizing-text"></div>
   </div>
 
-  <!-- ====== PDF表示パネル ====== -->
   <aside class="pdf-panel">
     <button class="pdf-close-btn" onclick="closePdf()" title="閉じる">✕</button>
     <iframe id="pdfFrame" title="Document Viewer"></iframe>
   </aside>
 
-  <!-- トースト -->
   <div id="toast"></div>
 
-  <!-- ====== Google Chat Messenger SDK（body末尾でロード） ====== -->
-  <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
-
   <script>
-    /* ============================================================
-       設定
-    ============================================================ */
     const MY_DEPLOYMENT =
       "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/" +
       "0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/" +
       "6a959a03-8b5b-423b-8ce3-f2eaa269d618";
-    const MY_API_KEY = "AIzaSyC01Bcy4PWCQ954qbs9KELdcwZkOsr1-TU";
 
-    /* ============================================================
-       ① SDK コンテキスト登録
-          ★ポイント: ページロード直後に登録し、ボタンを待たない
-    ============================================================ */
-    (function registerCtx() {
-      if (typeof chatSdk === 'undefined') {
-        // SDKがまだ未定義なら少し待って再試行
-        console.warn('[WSM AI] chatSdk not ready, retrying...');
-        setTimeout(registerCtx, 200);
-        return;
-      }
+    // 公式の推奨：chat-messenger-loaded 後に registerContext [Source]
+    window.addEventListener("chat-messenger-loaded", () => {
       try {
         chatSdk.registerContext(
           chatSdk.prebuilts.ces.createContext({
             deploymentName: MY_DEPLOYMENT,
-            apiKey:         MY_API_KEY,
-            // tokenBroker を無効化（APIキー直接使用）
-            tokenBroker: { enableTokenBroker: false }
-          })
+            tokenBroker: {
+              enableTokenBroker: true,
+              // Web widget 側で reCAPTCHA checks をONにした場合だけ有効化
+              // enableRecaptcha: true,
+            },
+          }),
         );
-        console.log('[WSM AI] Context registered ✅');
-      } catch (err) {
-        console.error('[WSM AI] registerContext failed:', err);
+        console.log("[WSM AI] Context registered ✅");
+      } catch (e) {
+        console.error("[WSM AI] registerContext failed", e);
       }
-    })();
+    });
 
-    /* ============================================================
-       ② アプリ起動ボタン
-    ============================================================ */
+    // エラー詳細を必ず出す（原因特定用）
+    const messenger = document.getElementById("messenger");
+    messenger.addEventListener("chat-messenger-error", (e) => {
+      console.error("[WSM AI] chat-messenger-error", e);
+      showToast("エラー: Console の詳細ログを確認してください");
+    });
+
     function startApp() {
       document.getElementById('start-screen').style.display = 'none';
-      document.getElementById('voice-bar').style.display = 'block';
-      // 音声監視ループ開始
-      setInterval(watchAndSpeak, 1800);
-      showToast('AIアシスタントを起動しました 🚀');
+      showToast('AIアシスタントを起動しました');
     }
 
-    /* ============================================================
-       ③ PDF自動検知・表示
-    ============================================================ */
+    // PDF検知（元のロジック維持）
     window.addEventListener('click', (e) => {
       const path = e.composedPath();
-      const anchor = path.find(el => el.tagName === 'A');
+      const anchor = path.find(el => el && el.tagName === 'A');
       if (anchor && anchor.href &&
-          (anchor.href.includes('storage.googleapis.com') ||
-           anchor.href.toLowerCase().endsWith('.pdf'))) {
+          (anchor.href.includes('storage.googleapis.com') || anchor.href.toLowerCase().endsWith('.pdf'))) {
         e.preventDefault();
         e.stopImmediatePropagation();
         openPdf(anchor.href);
@@ -310,236 +112,6 @@
       setTimeout(() => { document.getElementById('pdfFrame').src = ''; }, 400);
     }
 
-    /* ============================================================
-       ④ 音声読み上げ（TTS）
-          Shadow DOM を再帰検索してエージェント発言を取得
-    ============================================================ */
-    let lastSpokenText = '';
-
-    function watchAndSpeak() {
-      const messenger = document.getElementById('messenger');
-      if (!messenger) return;
-
-      // Shadow DOM を掘り下げる
-      const text = extractLatestAgentText(messenger);
-      if (text && text.length > 5 && text !== lastSpokenText && !text.includes('…')) {
-        lastSpokenText = text;
-        speak(text);
-      }
-    }
-
-    function extractLatestAgentText(root) {
-      // Shadow Root があれば潜る
-      const sr = root.shadowRoot || root;
-      // エージェントメッセージのセレクターを複数試す
-      const selectors = [
-        '[data-role="agent"] .message-text',
-        '.agent-message',
-        '.response-text',
-        '[class*="agent"]',
-        '[class*="response"]',
-        '[role="listitem"]:last-child',
-      ];
-      for (const sel of selectors) {
-        const nodes = sr.querySelectorAll(sel);
-        if (nodes.length > 0) {
-          const last = nodes[nodes.length - 1];
-          const t = last.innerText?.trim() || last.textContent?.trim();
-          if (t && t.length > 5) return t;
-        }
-      }
-      // 子要素の Shadow DOM も再帰探索
-      for (const child of sr.querySelectorAll('*')) {
-        if (child.shadowRoot) {
-          const t = extractLatestAgentText(child);
-          if (t) return t;
-        }
-      }
-      return null;
-    }
-
-    function speak(rawText) {
-      if (!window.speechSynthesis) return;
-      window.speechSynthesis.cancel(); // 前の読み上げを停止
-
-      // 参照番号 [1] などを除去、URLを除去
-      const cleanText = rawText
-        .replace(/\[\d+\]/g, '')
-        .replace(/https?:\/\/[^\s]+/g, '')
-        .replace(/[*_#`>|]/g, '') // Markdown記号を除去
-        .trim()
-        .slice(0, 500); // 長すぎる場合は先頭500文字
-
-      if (cleanText.length < 3) return;
-
-      const utt = new SpeechSynthesisUtterance(cleanText);
-      utt.lang  = 'ja-JP';
-      utt.rate  = 1.0;
-      utt.pitch = 1.0;
-
-      // 日本語の声を優先選択
-      const voices = window.speechSynthesis.getVoices();
-      const jaVoice = voices.find(v => v.lang.startsWith('ja')) || null;
-      if (jaVoice) utt.voice = jaVoice;
-
-      window.speechSynthesis.speak(utt);
-    }
-
-    /* ============================================================
-       ⑤ カスタム音声入力（Web Speech API）
-          chat-messengerの入力欄にテキストを注入する
-    ============================================================ */
-    let recognition = null;
-    let isListening  = false;
-
-    function toggleVoice() {
-      if (isListening) {
-        stopVoice();
-      } else {
-        startVoice();
-      }
-    }
-
-    function startVoice() {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        showToast('このブラウザは音声認識に対応していません');
-        return;
-      }
-
-      recognition = new SpeechRecognition();
-      recognition.lang           = 'ja-JP';
-      recognition.interimResults = true;  // 途中結果も表示
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        isListening = true;
-        document.getElementById('voice-btn').classList.add('listening');
-        document.getElementById('recognizing-text').style.display = 'block';
-        document.getElementById('recognizing-text').textContent = '🎤 聞いています…';
-      };
-
-      recognition.onresult = (event) => {
-        let interim = '';
-        let final   = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const t = event.results[i][0].transcript;
-          if (event.results[i].isFinal) { final += t; }
-          else                           { interim += t; }
-        }
-        document.getElementById('recognizing-text').textContent =
-          (final || interim) ? `🎤 ${final || interim}` : '🎤 聞いています…';
-
-        // 確定テキストをチャット入力欄に送信
-        if (final.trim()) {
-          injectAndSend(final.trim());
-        }
-      };
-
-      recognition.onerror = (e) => {
-        console.warn('[Voice] Error:', e.error);
-        const msg = {
-          'no-speech':       '音声が検出されませんでした',
-          'not-allowed':     'マイクへのアクセスが拒否されました',
-          'network':         'ネットワークエラーが発生しました',
-        }[e.error] || `認識エラー: ${e.error}`;
-        showToast(msg);
-        stopVoice();
-      };
-
-      recognition.onend = () => { stopVoice(); };
-
-      try {
-        recognition.start();
-      } catch (err) {
-        console.error('[Voice] start error:', err);
-        stopVoice();
-      }
-    }
-
-    function stopVoice() {
-      isListening = false;
-      document.getElementById('voice-btn').classList.remove('listening');
-      document.getElementById('recognizing-text').style.display = 'none';
-      if (recognition) {
-        try { recognition.stop(); } catch (_) {}
-        recognition = null;
-      }
-    }
-
-    /**
-     * chat-messenger の Shadow DOM を探してテキストを入力・送信する
-     */
-    function injectAndSend(text) {
-      // Shadow DOM 内の input / textarea を再帰探索
-      const input = findInput(document.getElementById('messenger'));
-      if (!input) {
-        showToast('入力欄が見つかりませんでした');
-        return;
-      }
-
-      // React/AngularなどのフレームワークはnativeInputValueSetterが必要な場合がある
-      const nativeInputSetter =
-        Object.getOwnPropertyDescriptor(
-          input.tagName === 'TEXTAREA'
-            ? window.HTMLTextAreaElement.prototype
-            : window.HTMLInputElement.prototype,
-          'value'
-        )?.set;
-
-      if (nativeInputSetter) {
-        nativeInputSetter.call(input, text);
-      } else {
-        input.value = text;
-      }
-
-      // inputイベントとEnterキー送信を発火
-      input.dispatchEvent(new Event('input',  { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-      input.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-
-      // 送信ボタンも探してクリック
-      const sendBtn = findSendButton(document.getElementById('messenger'));
-      if (sendBtn) { setTimeout(() => sendBtn.click(), 80); }
-
-      document.getElementById('recognizing-text').textContent = `✅ 送信: ${text}`;
-      setTimeout(() => { document.getElementById('recognizing-text').style.display = 'none'; }, 2000);
-    }
-
-    /** Shadow DOM を再帰的に探してテキスト入力欄を返す */
-    function findInput(root) {
-      const sr = root.shadowRoot || root;
-      const el = sr.querySelector('input[type="text"], textarea, input:not([type])');
-      if (el) return el;
-      for (const child of sr.querySelectorAll('*')) {
-        if (child.shadowRoot) {
-          const found = findInput(child);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-
-    /** Shadow DOM を再帰的に探して送信ボタンを返す */
-    function findSendButton(root) {
-      const sr = root.shadowRoot || root;
-      // type="submit" か aria-label に send/送信 を含むボタン
-      const btns = sr.querySelectorAll('button[type="submit"], button[aria-label*="send" i], button[aria-label*="送信" i]');
-      if (btns.length > 0) return btns[btns.length - 1];
-      for (const child of sr.querySelectorAll('*')) {
-        if (child.shadowRoot) {
-          const found = findSendButton(child);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-
-    /* ============================================================
-       ⑥ ユーティリティ：トースト通知
-    ============================================================ */
     let toastTimer = null;
     function showToast(msg, duration = 2800) {
       const t = document.getElementById('toast');
@@ -547,16 +119,6 @@
       t.classList.add('show');
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => t.classList.remove('show'), duration);
-    }
-
-    /* ============================================================
-       ⑦ 声一覧のプリロード（getVoices は非同期な場合がある）
-    ============================================================ */
-    if (window.speechSynthesis) {
-      window.speechSynthesis.getVoices(); // 一度呼んでキャッシュさせる
-      window.speechSynthesis.addEventListener('voiceschanged', () => {
-        window.speechSynthesis.getVoices();
-      });
     }
   </script>
 </body>

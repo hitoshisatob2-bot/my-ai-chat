@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>kubota WSM AI</title>
 
-  <!-- v1 に統一（公式の埋め込み例） -->
-  <link rel="stylesheet"
-    href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/themes/chat-messenger-default.css">
-  <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1/chat-messenger.js"></script>
+  <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/themes/chat-messenger-default.css">
+  <script src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.12/chat-messenger.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -18,31 +16,26 @@
     chat-messenger { flex: 1; display:flex; flex-direction:column; overflow:hidden; }
     .pdf-panel { width:0; border-left:2px solid #ddd; transition: width 0.4s ease-in-out; background:#525659; overflow:hidden; flex-shrink:0; position:relative; }
     body.pdf-open .pdf-panel { width: 50vw; }
-    .pdf-close-btn { position:absolute; top:8px; right:8px; z-index:20; background:rgba(255,255,255,0.15); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .pdf-close-btn { position:absolute; top:8px; right:8px; z-index:20; background:rgba(0,0,0,0.3); border:none; color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .pdf-panel iframe { width:100%; height:100%; border:none; }
     #start-screen { position:fixed; inset:0; background: linear-gradient(135deg, #e8f0fe 0%, #f8f9ff 100%); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
-    .start-btn { margin-top:16px; padding:18px 52px; font-size:1.1rem; font-weight:600; background:#1a73e8; color:#fff; border:none; border-radius:50px; cursor:pointer; }
-    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#323232; color:#fff; padding:10px 20px; border-radius:8px; font-size:0.88rem; z-index:99998; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
-    #toast.show { opacity: 1; }
+    .start-btn { margin-top:16px; padding:18px 52px; font-size:1.1rem; font-weight:600; background:#1a73e8; color:#fff; border:none; border-radius:50px; cursor:pointer; box-shadow: 0 4px 12px rgba(26,115,232,0.4); }
   </style>
 </head>
 
 <body>
   <div id="start-screen">
-    <div style="font-size:2.0rem;font-weight:800;color:#1a73e8;">kubota WSM AI</div>
-    <div style="color:#444;">整備マニュアル AIアシスタント</div>
+    <div style="font-size:2.4rem;font-weight:800;color:#1a73e8;margin-bottom:8px;">kubota WSM AI</div>
+    <div style="color:#444;font-size:1.1rem;">整備マニュアル AIアシスタント</div>
     <button class="start-btn" onclick="startApp()">AIアシスタントを起動する</button>
-    <div style="font-size:0.85rem;color:#888;">テキスト入力・音声入力に対応</div>
+    <div style="font-size:0.85rem;color:#888;margin-top:10px;">PDFドキュメントから回答を探します</div>
   </div>
 
   <div class="chat-container">
     <div class="chat-header">kubota WSM AI　整備マニュアル検索</div>
 
-    <chat-messenger id="messenger" language-code="ja" url-allowlist="*" max-query-length="-1">
-      <chat-messenger-container
-        chat-title="kubota WSM AI"
-        enable-audio-input="true"
-        placeholder="質問を入力してください…">
+    <chat-messenger id="messenger" url-allowlist="*">
+      <chat-messenger-container chat-title="kubota WSM AI" enable-audio-input="true">
       </chat-messenger-container>
     </chat-messenger>
   </div>
@@ -52,73 +45,45 @@
     <iframe id="pdfFrame" title="Document Viewer"></iframe>
   </aside>
 
-  <div id="toast"></div>
-
   <script>
-    const MY_DEPLOYMENT =
-      "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/" +
-      "0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/" +
-      "6a959a03-8b5b-423b-8ce3-f2eaa269d618";
+    // 最新のデプロイID
+    const MY_DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
+    
+    // ★ここにあなたのAPIキーを貼り付けてください
+    const MY_API_KEY = "AIzaSyC01Bcy4PWCQ954qbs9KELdcwZkOsr1-TU"; 
 
-    // 公式の推奨：chat-messenger-loaded 後に registerContext [Source]
-    window.addEventListener("chat-messenger-loaded", () => {
+    function startApp() {
+      document.getElementById('start-screen').style.display = 'none';
+
+      // 起動時に確実に初期化を行う
       try {
         chatSdk.registerContext(
           chatSdk.prebuilts.ces.createContext({
             deploymentName: MY_DEPLOYMENT,
-            tokenBroker: {
-              enableTokenBroker: true,
-              // Web widget 側で reCAPTCHA checks をONにした場合だけ有効化
-              // enableRecaptcha: true,
-            },
-          }),
+            apiKey: MY_API_KEY, // これがないと入力欄が出ません
+            tokenBroker: { enableTokenBroker: false } // 公開アクセスの場合はfalseでOK
+          })
         );
-        console.log("[WSM AI] Context registered ✅");
+        console.log("Chat started with API Key ✅");
       } catch (e) {
-        console.error("[WSM AI] registerContext failed", e);
+        console.error("Initialization failed", e);
       }
-    });
-
-    // エラー詳細を必ず出す（原因特定用）
-    const messenger = document.getElementById("messenger");
-    messenger.addEventListener("chat-messenger-error", (e) => {
-      console.error("[WSM AI] chat-messenger-error", e);
-      showToast("エラー: Console の詳細ログを確認してください");
-    });
-
-    function startApp() {
-      document.getElementById('start-screen').style.display = 'none';
-      showToast('AIアシスタントを起動しました');
     }
 
-    // PDF検知（元のロジック維持）
+    // PDFリンク検知
     window.addEventListener('click', (e) => {
       const path = e.composedPath();
-      const anchor = path.find(el => el && el.tagName === 'A');
-      if (anchor && anchor.href &&
-          (anchor.href.includes('storage.googleapis.com') || anchor.href.toLowerCase().endsWith('.pdf'))) {
+      const a = path.find(el => el && el.tagName === 'A');
+      if (a && a.href && (a.href.includes('storage.googleapis.com') || a.href.toLowerCase().endsWith('.pdf'))) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        openPdf(anchor.href);
+        document.getElementById('pdfFrame').src = a.href;
+        document.body.classList.add('pdf-open');
       }
     }, true);
 
-    function openPdf(url) {
-      document.getElementById('pdfFrame').src = url;
-      document.body.classList.add('pdf-open');
-    }
     function closePdf() {
       document.body.classList.remove('pdf-open');
-      setTimeout(() => { document.getElementById('pdfFrame').src = ''; }, 400);
-    }
-
-    let toastTimer = null;
-    function showToast(msg, duration = 2800) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.classList.add('show');
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => t.classList.remove('show'), duration);
     }
   </script>
 </body>

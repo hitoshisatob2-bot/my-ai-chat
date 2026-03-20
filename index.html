@@ -46,27 +46,26 @@
   </aside>
 
   <script>
-    // 最新のデプロイID
+    // プロジェクトIDとデプロイ情報の最終確認済み
     const MY_DEPLOYMENT = "projects/project-c482c56a-16d2-4b8c-b89/locations/us/apps/0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b/deployments/6a959a03-8b5b-423b-8ce3-f2eaa269d618";
-    
-    // ★ここにあなたのAPIキーを貼り付けてください
     const MY_API_KEY = "AIzaSyC01Bcy4PWCQ954qbs9KELdcwZkOsr1-TU"; 
 
     function startApp() {
+      console.log("DEBUG: Start button clicked."); // 動作確認用
       document.getElementById('start-screen').style.display = 'none';
 
-      // 起動時に確実に初期化を行う
       try {
-        chatSdk.registerContext(
-          chatSdk.prebuilts.ces.createContext({
-            deploymentName: MY_DEPLOYMENT,
-            apiKey: MY_API_KEY, // これがないと入力欄が出ません
-            tokenBroker: { enableTokenBroker: false } // 公開アクセスの場合はfalseでOK
-          })
-        );
-        console.log("Chat started with API Key ✅");
+        // SDKの初期化
+        const context = chatSdk.prebuilts.ces.createContext({
+          deploymentName: MY_DEPLOYMENT,
+          apiKey: MY_API_KEY,
+          tokenBroker: { enableTokenBroker: false }
+        });
+
+        chatSdk.registerContext(context);
+        console.log("DEBUG: Chat SDK initialized with API Key ✅");
       } catch (e) {
-        console.error("Initialization failed", e);
+        console.error("DEBUG: Initialization failed", e);
       }
     }
 
@@ -79,6 +78,7 @@
         e.stopImmediatePropagation();
         document.getElementById('pdfFrame').src = a.href;
         document.body.classList.add('pdf-open');
+        console.log("DEBUG: PDF Link detected:", a.href);
       }
     }, true);
 

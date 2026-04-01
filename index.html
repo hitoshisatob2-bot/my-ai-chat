@@ -284,7 +284,6 @@
 
 <body>
 
-<!-- ===== スタート画面 ===== -->
 <div id="start-screen">
   <div class="start-icon">🔧</div>
   <div class="start-logo">kubota WSM AI</div>
@@ -298,7 +297,6 @@
   <div class="start-note">登録済みPDFドキュメントから自動検索・回答します</div>
 </div>
 
-<!-- ===== メインチャット ===== -->
 <div class="chat-container">
   <div class="chat-header">
     <div class="header-dot"></div>
@@ -343,31 +341,42 @@
   </div>
 </div>
 
-<!-- ===== PDFパネル ===== -->
 <aside class="pdf-panel" id="pdfPanel">
   <button class="pdf-close-btn" onclick="closePdf()" title="閉じる">✕</button>
   <iframe id="pdfFrame" title="Document Viewer"></iframe>
 </aside>
 
+<script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
+
 <script>
 // ================================================================
-//  設定 – ご自身の値に合わせて変更してください
+//  設定 – スクリーンショットから取得した正確な値を反映
 // ================================================================
 const CFG = {
-  projectId  : "project-c482c56a-16d2-4b8c-b89",   // ← GCPプロジェクトID
-  location   : "us",
-  appId      : "0bccbf8c-d3a5-4ef7-b1df-5e8347673d4b",
-  apiKey     : "AIzaSyC01Bcy4PWCQ954qbs9KELdcwZkOsr1-TU"
+  projectId : "project-c482c56a-16d2-4b8c-b89", 
+  location  : "global",
+  configId  : "ea87f861-8662-4a50-b0b4-598d12387543" // コンソールに表示されていたconfigId
 };
+
+// ================================================================
+//  Vertex AI Widget API連携
+// ================================================================
+
+// 1. Widget要素を動的に作成（バックグラウンドで処理するため）
+const widgetEl = document.createElement('gen-search-widget');
+widgetEl.setAttribute('configId', CFG.configId);
+widgetEl.setAttribute('location', CFG.location);
+// 実際には表示させず、APIとして利用
+widgetEl.style.display = 'none';
+document.body.appendChild(widgetEl);
 
 // ================================================================
 //  状態変数
 // ================================================================
-let sessionName      = null;   // APIが返すsession名を保持（会話継続用）
-let isBusy           = false;
-let recognition      = null;
-let isRecording      = false;
-let ttsOn            = true;
+let isBusy       = false;
+let recognition  = null;
+let isRecording  = false;
+let ttsOn        = true;
 
 // ================================================================
 //  アプリ起動
@@ -376,109 +385,11 @@ function startApp() {
   document.getElementById('start-screen').style.display = 'none';
   setupVoiceInput();
   document.getElementById('inputField').focus();
-  console.log('✅ App started');
+  console.log('✅ App started with ConfigID:', CFG.configId);
 }
 
 // ================================================================
-//  Vertex AI Discovery Engine – Answer API
-//  POST /v1alpha/projects/{proj}/locations/{loc}/collections/
-//       default_collection/engines/{engine}/servingConfigs/
-//       default_search:answer?key={apiKey}
-// ================================================================
-async function callAnswerAPI(question) {
-  const base = `https://discoveryengine.googleapis.com/v1alpha`;
-  const path = `/projects/${CFG.projectId}/locations/${CFG.location}`
-             + `/collections/default_collection/engines/${CFG.appId}`
-             + `/servingConfigs/default_search:answer`;
-  const url  = `${base}${path}?key=${CFG.apiKey}`;
-
-  // 初回は session="-"（新規セッション）、以降は返却された session 名を使用
-  const sessionParam = sessionName
-    ? sessionName
-    : `projects/${CFG.projectId}/locations/${CFG.location}`
-    + `/collections/default_collection/engines/${CFG.appId}/sessions/-`;
-
-  const body = {
-    query: { text: question },
-    session: sessionParam,
-    answerGenerationSpec: {
-      ignoreAdversarialQuery     : false,
-      ignoreNonAnswerSeekingQuery: false,
-      includeCitations           : true,
-      answerLanguageCode         : "ja",
-      modelSpec                  : { modelVersion: "stable" }
-    },
-    searchSpec: {
-      searchParams: { maxReturnResults: 5 }
-    }
-  };
-
-  const res = await fetch(url, {
-    method : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body   : JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    let errMsg = `HTTP ${res.status}`;
-    try {
-      const errJson = JSON.parse(errBody);
-      errMsg = errJson?.error?.message || errMsg;
-    } catch(_) {}
-    throw new Error(errMsg);
-  }
-
-  const data = await res.json();
-  console.log('API response:', data);
-
-  // セッション名を保持（次回の会話に使用）
-  if (data.session?.name) sessionName = data.session.name;
-
-  return parseAnswerResponse(data);
-}
-
-// ----------------------------------------------------------------
-//  レスポンスのパース
-// ----------------------------------------------------------------
-function parseAnswerResponse(data) {
-  let text = '';
-  let refs = [];
-
-  if (data.answer) {
-    text = data.answer.answerText || '';
-
-    // 参照ドキュメントを収集
-    if (Array.isArray(data.answer.references)) {
-      data.answer.references.forEach(ref => {
-        const info = ref.unstructuredDocumentInfo;
-        if (info) {
-          refs.push({
-            title: info.title || info.documentMetadata?.title || 'ドキュメント',
-            uri  : info.uri   || ''
-          });
-        }
-      });
-    }
-  }
-
-  // answer がなければ search results から snippets を取得
-  if (!text && Array.isArray(data.results)) {
-    text = data.results
-      .slice(0, 4)
-      .map(r => r.document?.derivedStructData?.snippets?.[0]?.snippet || '')
-      .filter(Boolean)
-      .join('\n\n');
-  }
-
-  return {
-    text: text.trim() || '関連情報が見つかりませんでした。質問を変えてお試しください。',
-    refs
-  };
-}
-
-// ================================================================
-//  メッセージ送信
+//  メッセージ送信（Google Cloud Widget API経由）
 // ================================================================
 async function sendMessage() {
   const field = document.getElementById('inputField');
@@ -495,20 +406,28 @@ async function sendMessage() {
   document.getElementById('sendBtn').disabled = true;
 
   try {
-    const result = await callAnswerAPI(q);
+    // Widgetの内部APIを使用して検索を実行
+    const response = await widgetEl.search(q);
     removeTyping(tid);
-    appendMsg('ai', result.text, result.refs);
-    if (ttsOn) speakText(result.text);
+
+    if (response && response.answer) {
+      const answerText = response.answer.answerText;
+      const references = response.answer.references || [];
+      
+      const refs = references.map(ref => ({
+        title: ref.unstructuredDocumentInfo?.title || '参照ドキュメント',
+        uri: ref.unstructuredDocumentInfo?.uri || ''
+      }));
+
+      appendMsg('ai', answerText, refs);
+      if (ttsOn) speakText(answerText);
+    } else {
+      appendMsg('ai', '申し訳ありませんが、資料の中に該当する情報が見つかりませんでした。');
+    }
   } catch (err) {
     removeTyping(tid);
     console.error('API error:', err);
-    appendMsg('error',
-      `⚠️ エラーが発生しました\n\n${err.message}\n\n`
-    + `【確認事項】\n`
-    + `① Google Cloud コンソールで API キーに「Discovery Engine API」の権限があるか\n`
-    + `② プロジェクト ID (${CFG.projectId}) が正しいか\n`
-    + `③ アプリ ID (${CFG.appId}) が正しいか`
-    );
+    appendMsg('error', `⚠️ エラーが発生しました。認証設定やドメイン制限を確認してください。`);
   } finally {
     isBusy = false;
     document.getElementById('sendBtn').disabled = false;
@@ -538,16 +457,14 @@ function appendMsg(type, text, refs = []) {
 
   const avatarMap = { user:'👤', ai:'🤖', error:'⚠️' };
 
-  // 参照ブロック HTML
   let refsHtml = '';
   if (refs.length) {
-    const links = refs.map(r =>
-      r.uri
+    const links = refs.map(r => 
+      r.uri 
         ? `<a class="msg-ref-link" href="${r.uri}" data-uri="${r.uri}" onclick="openPdf(event,this)">📄 ${escHtml(r.title)}</a>`
         : `<span class="msg-ref-link">📄 ${escHtml(r.title)}</span>`
     ).join('');
-    refsHtml = `<div class="msg-refs">
-      <div class="msg-refs-title">📚 参照ドキュメント</div>${links}</div>`;
+    refsHtml = `<div class="msg-refs"><div class="msg-refs-title">📚 参照ドキュメント</div>${links}</div>`;
   }
 
   wrapper.innerHTML = `
@@ -565,7 +482,7 @@ function showTyping() {
   const area = document.getElementById('messagesArea');
   const id   = 'typing-' + Date.now();
   const div  = document.createElement('div');
-  div.id    = id;
+  div.id     = id;
   div.className = 'message ai';
   div.innerHTML  = `
     <div class="msg-avatar">🤖</div>
@@ -582,24 +499,21 @@ function removeTyping(id) {
 }
 
 function escHtml(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ================================================================
-//  音声入力（Web Speech API）
+//  音声入力
 // ================================================================
 function setupVoiceInput() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
     document.getElementById('voiceBtn').style.display = 'none';
-    console.warn('SpeechRecognition not supported');
     return;
   }
-  recognition             = new SR();
-  recognition.lang        = 'ja-JP';
-  recognition.continuous  = false;
+  recognition = new SR();
+  recognition.lang = 'ja-JP';
+  recognition.continuous = false;
   recognition.interimResults = true;
 
   recognition.onstart = () => {
@@ -610,14 +524,14 @@ function setupVoiceInput() {
   };
 
   recognition.onresult = e => {
-    let final = '', interim = '';
+    let final = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      (e.results[i].isFinal ? (final += e.results[i][0].transcript)
-                            : (interim += e.results[i][0].transcript));
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
     }
-    const field = document.getElementById('inputField');
-    field.value = final || interim;
-    resizeField(field);
+    if(final) {
+      document.getElementById('inputField').value = final;
+      resizeField(document.getElementById('inputField'));
+    }
   };
 
   recognition.onend = () => {
@@ -625,31 +539,14 @@ function setupVoiceInput() {
     document.getElementById('voiceBtn').classList.remove('recording');
     document.getElementById('voiceWave').classList.remove('active');
     setVoiceStatus('');
-    const q = document.getElementById('inputField').value.trim();
-    if (q) setTimeout(sendMessage, 400);
-  };
-
-  recognition.onerror = e => {
-    isRecording = false;
-    document.getElementById('voiceBtn').classList.remove('recording');
-    document.getElementById('voiceWave').classList.remove('active');
-    if (e.error !== 'no-speech') {
-      setVoiceStatus(`音声エラー: ${e.error}`);
-      setTimeout(() => setVoiceStatus(''), 3000);
-    } else {
-      setVoiceStatus('');
-    }
+    if (document.getElementById('inputField').value.trim()) sendMessage();
   };
 }
 
 function toggleVoice() {
-  if (!recognition) { alert('このブラウザは音声入力に対応していません'); return; }
-  if (isRecording) {
-    recognition.stop();
-  } else {
-    window.speechSynthesis?.cancel();
-    try { recognition.start(); } catch(e) { console.warn(e); }
-  }
+  if (!recognition) return;
+  if (isRecording) { recognition.stop(); } 
+  else { window.speechSynthesis?.cancel(); recognition.start(); }
 }
 
 function setVoiceStatus(msg) {
@@ -657,25 +554,17 @@ function setVoiceStatus(msg) {
 }
 
 // ================================================================
-//  音声読み上げ（Web Speech Synthesis API）
+//  音声読み上げ
 // ================================================================
 function speakText(text) {
   if (!window.speechSynthesis) return;
-  const clean = text.replace(/\[.*?\]/g,'').replace(/https?:\/\/\S+/g,'').substring(0, 400);
-  if (!clean.trim()) return;
+  const clean = text.replace(/\[.*?\]/g,'').substring(0, 300);
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang  = 'ja-JP';
-  utter.rate  = 1.0;
-  // 日本語音声を優先
-  const jaVoice = speechSynthesis.getVoices().find(v => v.lang.startsWith('ja'));
-  if (jaVoice) utter.voice = jaVoice;
+  utter.lang = 'ja-JP';
   speechSynthesis.speak(utter);
 }
 
-// ================================================================
-//  テキストエリア 自動リサイズ
-// ================================================================
 function resizeField(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 130) + 'px';
@@ -686,16 +575,16 @@ document.addEventListener('DOMContentLoaded', () => {
   f.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-  f.addEventListener('input', () => resizeField(f));
 });
 
 // ================================================================
-//  PDFパネル
+//  PDFパネル制御
 // ================================================================
 function openPdf(e, a) {
   e.preventDefault();
   const uri = a.dataset.uri;
   if (!uri) return;
+  // Google Cloud StorageのURLをプレビュー可能にするためiframeにセット
   document.getElementById('pdfFrame').src = uri;
   document.body.classList.add('pdf-open');
 }
@@ -704,17 +593,6 @@ function closePdf() {
   document.body.classList.remove('pdf-open');
   document.getElementById('pdfFrame').src = '';
 }
-
-// チャットメッセージ内の PDF リンクも捕捉
-window.addEventListener('click', e => {
-  const path = e.composedPath();
-  const a    = path.find(el => el?.tagName === 'A');
-  if (a?.href && (a.href.includes('storage.googleapis.com') || a.href.toLowerCase().endsWith('.pdf'))) {
-    e.preventDefault();
-    document.getElementById('pdfFrame').src = a.href;
-    document.body.classList.add('pdf-open');
-  }
-}, true);
 </script>
 </body>
 </html>

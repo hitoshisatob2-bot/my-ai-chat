@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索</title>
+    <title>kubota WSM AI 整備マニュアル検索.b</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     <style>
         body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f5f7f9; }
@@ -12,7 +12,6 @@
         .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; }
         input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; }
         button { background-color: #1a73e8; color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
         gen-search-widget { width: 100%; display: block; }
     </style>
 </head>
@@ -32,65 +31,60 @@
 
 <div class="input-area">
     <input type="text" id="userInput" placeholder="質問を入力してください...">
-    <button id="sendBtn" onclick="handleSearch()">検索</button>
+    <button id="searchWidgetTrigger">検索</button>
 </div>
 
 <script>
+    const CFG = {
+        projectId: "project-c482c56a-16d2-4b8c-b89",
+        location: "global",
+        configId: "ea87f861-8662-4a50-b0b4-598d12387543"
+    };
+
+    // ウィジェット要素の取得
     const widgetEl = document.getElementById('myWidget');
     const inputEl = document.getElementById('userInput');
-    const btnEl = document.getElementById('sendBtn');
+    const triggerBtn = document.getElementById('searchWidgetTrigger');
 
     /**
-     * 検索実行関数
+     * 検索実行
      */
-    async function handleSearch() {
+    async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
-        // 1. ウィジェットが存在するか確認
-        if (!widgetEl) {
-            console.error("Widget element not found");
-            return;
-        }
-
-        // 2. ウィジェットが初期化され、searchメソッドが使えるようになるまで待機
-        if (typeof widgetEl.search !== 'function') {
-            btnEl.innerText = "準備中...";
-            btnEl.disabled = true;
-            
-            // 最大5秒間、初期化をチェック
-            let attempts = 0;
-            const checkInit = setInterval(async () => {
-                attempts++;
-                if (typeof widgetEl.search === 'function') {
-                    clearInterval(checkInit);
-                    btnEl.innerText = "検索";
-                    btnEl.disabled = false;
-                    executeSearch(query);
-                } else if (attempts > 50) { // 5秒経過
-                    clearInterval(checkInit);
-                    alert("ウィジェットの読み込みに失敗しました。ページを更新してください。");
-                    btnEl.innerText = "検索";
-                    btnEl.disabled = false;
-                }
-            }, 100);
+        // ウィジェットのメソッドがロードされているか確認
+        if (widgetEl && typeof widgetEl.search === 'function') {
+            try {
+                await widgetEl.search(query);
+                inputEl.value = '';
+            } catch (err) {
+                console.error("Search failed:", err);
+            }
         } else {
-            executeSearch(query);
+            console.warn("Widget not ready. Retrying...");
+            // まだ準備ができていない場合は少し待って再実行
+            setTimeout(performSearch, 500);
         }
     }
 
-    async function executeSearch(query) {
-        try {
-            await widgetEl.search(query);
-            inputEl.value = '';
-        } catch (err) {
-            console.error("Search Error:", err);
-        }
-    }
+    // ボタンクリック時のイベント
+    triggerBtn.addEventListener('click', performSearch);
 
-    // Enterキー対応
+    // Enterキー入力時のイベント
     inputEl.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
+        if (e.key === 'Enter') performSearch();
+    });
+
+    /**
+     * ページ読み込み完了時の初期化
+     */
+    window.addEventListener('load', () => {
+        if (widgetEl) {
+            widgetEl.configId = CFG.configId;
+            widgetEl.location = CFG.location;
+            console.log("Widget config applied.");
+        }
     });
 </script>
 

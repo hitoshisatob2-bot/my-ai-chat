@@ -6,73 +6,14 @@
     <title>kubota WSM AI 整備マニュアル検索</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     <style>
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background-color: #f5f7f9;
-        }
-        header {
-            background-color: #1a73e8;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        header h1 {
-            margin: 0;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        #chat-container {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-        .input-area {
-            background: white;
-            padding: 20px;
-            border-top: 1px solid #ddd;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        input[type="text"] {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 25px;
-            outline: none;
-            font-size: 1rem;
-        }
-        input[type="text"]:focus {
-            border-color: #1a73e8;
-        }
-        button {
-            background-color: #1a73e8;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background-color: #1557b0;
-        }
-        /* ウィジェットを隠すための設定（検索結果表示時のみ有効化） */
-        gen-search-widget {
-            display: block;
-            width: 100%;
-        }
+        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f5f7f9; }
+        header { background-color: #1a73e8; color: white; padding: 15px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #chat-container { flex: 1; padding: 20px; overflow-y: auto; }
+        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 25px; outline: none; }
+        button { background-color: #1a73e8; color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        gen-search-widget { width: 100%; display: block; }
     </style>
 </head>
 <body>
@@ -90,64 +31,66 @@
 </div>
 
 <div class="input-area">
-    <input type="text" id="userInput" placeholder="質問を入力... (Enter で送信 / Shift+Enter で改行)">
-    <button id="searchWidgetTrigger" onclick="handleSearch()">検索</button>
+    <input type="text" id="userInput" placeholder="質問を入力してください...">
+    <button id="sendBtn" onclick="handleSearch()">検索</button>
 </div>
 
 <script>
-    // 設定情報
-    const CFG = {
-        projectId: "project-c482c56a-16d2-4b8c-b89",
-        location: "global",
-        configId: "ea87f861-8662-4a50-b0b4-598d12387543"
-    };
+    const widgetEl = document.getElementById('myWidget');
+    const inputEl = document.getElementById('userInput');
+    const btnEl = document.getElementById('sendBtn');
 
     /**
-     * 検索実行メイン関数
+     * 検索実行関数
      */
     async function handleSearch() {
-        const input = document.getElementById('userInput');
-        const widgetEl = document.querySelector('gen-search-widget');
-        const query = input.value.trim();
-
+        const query = inputEl.value.trim();
         if (!query) return;
 
-        // ウィジェットがメソッドを持っているか確認して実行
-        if (widgetEl && typeof widgetEl.search === 'function') {
-            try {
-                await widgetEl.search(query);
-                input.value = ''; // 成功したら入力をクリア
-            } catch (err) {
-                console.error("検索実行中にエラーが発生しました:", err);
-                alert("検索中にエラーが発生しました。コンソールを確認してください。");
-            }
+        // 1. ウィジェットが存在するか確認
+        if (!widgetEl) {
+            console.error("Widget element not found");
+            return;
+        }
+
+        // 2. ウィジェットが初期化され、searchメソッドが使えるようになるまで待機
+        if (typeof widgetEl.search !== 'function') {
+            btnEl.innerText = "準備中...";
+            btnEl.disabled = true;
+            
+            // 最大5秒間、初期化をチェック
+            let attempts = 0;
+            const checkInit = setInterval(async () => {
+                attempts++;
+                if (typeof widgetEl.search === 'function') {
+                    clearInterval(checkInit);
+                    btnEl.innerText = "検索";
+                    btnEl.disabled = false;
+                    executeSearch(query);
+                } else if (attempts > 50) { // 5秒経過
+                    clearInterval(checkInit);
+                    alert("ウィジェットの読み込みに失敗しました。ページを更新してください。");
+                    btnEl.innerText = "検索";
+                    btnEl.disabled = false;
+                }
+            }, 100);
         } else {
-            console.error("ウィジェットの準備が整っていないか、メソッドが見つかりません。");
-            alert("システムの準備中です。しばらく待ってから再度お試しください。");
+            executeSearch(query);
         }
     }
 
-    /**
-     * エンターキーでの送信対応
-     */
-    document.getElementById('userInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSearch();
+    async function executeSearch(query) {
+        try {
+            await widgetEl.search(query);
+            inputEl.value = '';
+        } catch (err) {
+            console.error("Search Error:", err);
         }
-    });
+    }
 
-    /**
-     * ウィジェットの初期化設定
-     */
-    window.addEventListener('load', () => {
-        const widgetEl = document.getElementById('myWidget');
-        if (widgetEl) {
-            // 公開アクセス設定の場合、明示的にIDを再セット
-            widgetEl.configId = CFG.configId;
-            widgetEl.location = CFG.location;
-            console.log("Widget initialized with Config ID:", CFG.configId);
-        }
+    // Enterキー対応
+    inputEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSearch();
     });
 </script>
 

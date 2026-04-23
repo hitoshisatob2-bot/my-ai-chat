@@ -21,7 +21,7 @@
             display: none !important;
         }
 
-        /* ---------- 開始画面 ---------- */
+        /* 開始画面 */
         .start-screen {
             min-height: 100vh;
             display: flex;
@@ -34,7 +34,7 @@
         .start-card {
             width: 100%;
             max-width: 520px;
-            background: #ffffff;
+            background: #fff;
             border-radius: 20px;
             padding: 40px 28px;
             text-align: center;
@@ -70,7 +70,7 @@
             transform: translateY(-1px);
         }
 
-        /* ---------- アプリ本体 ---------- */
+        /* アプリ本体 */
         .app {
             display: flex;
             flex-direction: column;
@@ -129,10 +129,19 @@
             font-size: 14px;
         }
 
+        /* 結果表示エリア */
+        .widget-wrapper {
+            width: 100%;
+            background: #fff;
+            border-radius: 16px;
+            padding: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            min-height: 320px;
+        }
+
         gen-search-widget {
             width: 100%;
             display: block;
-            background: transparent;
         }
 
         .input-area {
@@ -239,7 +248,7 @@
         <div class="start-card">
             <h1>🔧 kubota WSM AI 整備マニュアル検索</h1>
             <p>
-                PDFマニュアルから必要な情報を検索するAIチャットです。<br>
+                PDF整備マニュアルから必要な情報を検索するAIチャットです。<br>
                 テキスト入力にも音声入力にも対応しています。
             </p>
             <button id="startChatBtn" class="start-btn">AIチャットを開始</button>
@@ -255,11 +264,15 @@
         <div id="chat-container">
             <div id="messageList" class="message-list"></div>
 
-            <gen-search-widget
-                id="myWidget"
-                configId="ea87f861-8662-4a50-b0b4-598d12387543"
-                triggerId="searchWidgetTrigger">
-            </gen-search-widget>
+            <div class="widget-wrapper">
+                <gen-search-widget
+                    id="myWidget"
+                    configId="ea87f861-8662-4a50-b0b4-598d12387543"
+                    location="global"
+                    placeholder="ここで検索"
+                    alwaysOpened>
+                </gen-search-widget>
+            </div>
         </div>
 
         <div class="helper-text">
@@ -285,7 +298,7 @@
                 </svg>
             </button>
 
-            <button id="searchWidgetTrigger" class="send-button" type="button">検索</button>
+            <button id="searchBtn" class="send-button" type="button">検索</button>
         </div>
     </div>
 
@@ -304,7 +317,7 @@
 
         const widgetEl = document.getElementById("myWidget");
         const inputEl = document.getElementById("userInput");
-        const triggerBtn = document.getElementById("searchWidgetTrigger");
+        const searchBtn = document.getElementById("searchBtn");
         const micButton = document.getElementById("micButton");
         const messageList = document.getElementById("messageList");
         const chatContainer = document.getElementById("chat-container");
@@ -346,7 +359,13 @@
 
             try {
                 await waitForWidgetReady();
+
+                // 任意：ユーザーが何を聞いたか上に表示
+                addMessage(`質問: ${query}`, "assistant");
+
+                // 同じ画面内の alwaysOpened なウィジェットで検索実行
                 await widgetEl.search(query);
+
                 inputEl.value = "";
                 scrollToBottom();
             } catch (err) {
@@ -421,10 +440,9 @@
             scrollToBottom();
         }
 
-        // イベント設定
         startChatBtn.addEventListener("click", startChat);
 
-        triggerBtn.addEventListener("click", () => {
+        searchBtn.addEventListener("click", () => {
             performSearch();
         });
 
@@ -453,7 +471,6 @@
             if (widgetEl) {
                 widgetEl.configId = CFG.configId;
                 widgetEl.location = CFG.location;
-                console.log("Widget config applied.");
             }
 
             setupSpeechRecognition();

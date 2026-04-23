@@ -48,7 +48,6 @@
             font-size: 1.2rem;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s;
         }
 
         /* チャット画面 */
@@ -63,8 +62,6 @@
             flex: 1; 
             padding: 20px; 
             overflow-y: auto; 
-            display: flex;
-            flex-direction: column;
         }
 
         .welcome-msg {
@@ -75,12 +72,6 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             max-width: 80%;
             border-left: 5px solid var(--primary-color);
-        }
-
-        /* ウィジェットがここに回答を表示するように調整 */
-        #widget-wrapper {
-            width: 100%;
-            min-height: 400px;
         }
 
         /* 入力エリア */
@@ -107,10 +98,7 @@
             border: none;
             font-size: 24px;
             cursor: pointer;
-            padding: 5px;
         }
-
-        .mic-btn.active { color: #d93025; animation: pulse 1.5s infinite; }
 
         .send-btn { 
             background-color: var(--primary-color); 
@@ -122,17 +110,21 @@
             font-weight: bold; 
         }
 
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .send-btn:disabled {
+            background-color: #ccc;
+        }
+
+        /* ウィジェット表示エリア */
+        #widget-container {
+            margin-top: 10px;
+            width: 100%;
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🔧 kubota WSM AI 整備マニュアル検索.c</h1>
+    <h1>🔧 kubota WSM AI 整備マニュアル検索.d</h1>
 </header>
 
 <div id="start-screen">
@@ -147,83 +139,85 @@
             こんにちは！あなたをサポートするAIガイドです。質問はなんですか？
         </div>
         
-        <div id="widget-wrapper">
+        <div id="widget-container">
             <gen-search-widget
                 id="myWidget"
                 displayMode="inline"
-                configId="ea87f861-8662-4a50-b0b4-598d12387543">
+                configId="ea87f861-8662-4a50-b0b4-598d12387543"
+                location="global">
             </gen-search-widget>
         </div>
     </div>
 
     <div class="input-area">
-        <button id="micBtn" class="icon-btn mic-btn" title="音声で入力">🎤</button>
+        <button id="micBtn" class="icon-btn">🎤</button>
         <input type="text" id="userInput" placeholder="質問を入力してください...">
-        <button id="searchWidgetTrigger" class="send-btn">検索</button>
+        <button id="searchBtn" class="send-btn">検索</button>
     </div>
 </div>
 
 <script>
-    const CFG = {
-        location: "global",
-        configId: "ea87f861-8662-4a50-b0b4-598d12387543"
-    };
-
-    const startScreen = document.getElementById('start-screen');
-    const chatInterface = document.getElementById('chat-interface');
     const widgetEl = document.getElementById('myWidget');
     const inputEl = document.getElementById('userInput');
-    const triggerBtn = document.getElementById('searchWidgetTrigger');
-    const micBtn = document.getElementById('micBtn');
+    const searchBtn = document.getElementById('searchBtn');
+    const startScreen = document.getElementById('start-screen');
+    const chatInterface = document.getElementById('chat-interface');
 
     function startChat() {
         startScreen.style.display = 'none';
         chatInterface.style.display = 'flex';
-        
-        if (widgetEl) {
-            widgetEl.configId = CFG.configId;
-            widgetEl.location = CFG.location;
-        }
+        console.log("Chat started. Widget state:", widgetEl);
     }
 
+    /**
+     * 検索を実行する関数
+     */
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
+        console.log("Attempting search for:", query);
+
+        // ウィジェットがロードされているか、searchメソッドが存在するか確認
         if (widgetEl && typeof widgetEl.search === 'function') {
             try {
-                // 検索実行
+                searchBtn.disabled = true;
+                searchBtn.innerText = "検索中...";
+                
                 await widgetEl.search(query);
-                // 入力欄をクリア（回答は上のwidgetエリアに出る）
+                
                 inputEl.value = '';
+                console.log("Search successful");
             } catch (err) {
-                console.error("Search failed:", err);
+                console.error("Search method error:", err);
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.innerText = "検索";
             }
+        } else {
+            console.warn("Widget search method not ready yet. Waiting...");
+            // ウィジェットの準備ができるまで0.5秒待って再試行
+            setTimeout(performSearch, 500);
         }
     }
 
-    // 音声認識 (Web Speech API)
+    // イベント設定
+    searchBtn.addEventListener('click', performSearch);
+    inputEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+
+    // 音声認識 (簡易版)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = 'ja-JP';
-
-        micBtn.addEventListener('click', () => {
-            recognition.start();
-            micBtn.classList.add('active');
-        });
-
+        document.getElementById('micBtn').addEventListener('click', () => recognition.start());
         recognition.onresult = (event) => {
             inputEl.value = event.results[0][0].transcript;
-            micBtn.classList.remove('active');
+            performSearch();
         };
-        recognition.onend = () => micBtn.classList.remove('active');
     }
-
-    triggerBtn.addEventListener('click', performSearch);
-    inputEl.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
-    });
 </script>
 
 </body>

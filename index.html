@@ -1,480 +1,256 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>kubota WSM AI 整備マニュアル検索.b</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kubota WSM AI 整備マニュアル検索</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
+    
     <style>
-        * {
-            box-sizing: border-box;
+        :root {
+            --primary-color: #1a73e8;
+            --bg-color: #f5f7f9;
         }
 
-        body {
-            margin: 0;
-            font-family: sans-serif;
-            background: #f5f7f9;
-            color: #333;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* 開始画面 */
-        .start-screen {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #1a73e8, #4f9dfb);
-            padding: 20px;
-        }
-
-        .start-card {
-            width: 100%;
-            max-width: 520px;
-            background: #fff;
-            border-radius: 20px;
-            padding: 40px 28px;
-            text-align: center;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-        }
-
-        .start-card h1 {
-            margin: 0 0 16px;
-            font-size: 28px;
-            color: #1a73e8;
-        }
-
-        .start-card p {
-            margin: 0 0 28px;
-            color: #555;
-            line-height: 1.7;
-        }
-
-        .start-btn {
-            background: #1a73e8;
-            color: #fff;
-            border: none;
-            border-radius: 999px;
-            padding: 14px 28px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s ease;
-        }
-
-        .start-btn:hover {
-            background: #155fc4;
-            transform: translateY(-1px);
-        }
-
-        /* アプリ本体 */
-        .app {
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            margin: 0; 
+            background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
             height: 100vh;
         }
 
-        header {
-            background-color: #1a73e8;
-            color: white;
-            padding: 16px 20px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-        }
-
-        header h2 {
-            margin: 0;
-            font-size: 20px;
-        }
-
-        #chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .message-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            line-height: 1.6;
-            font-size: 15px;
-            word-break: break-word;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-        }
-
-        .message.assistant {
-            align-self: flex-start;
-            background: #ffffff;
-            border: 1px solid #e3e8ef;
-            color: #333;
-        }
-
-        .message.system {
-            align-self: center;
-            background: #fff8e1;
-            border: 1px solid #f4d27a;
-            color: #7a5a00;
-            font-size: 14px;
-        }
-
-        /* 結果表示エリア */
-        .widget-wrapper {
-            width: 100%;
-            background: #fff;
-            border-radius: 16px;
-            padding: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            min-height: 320px;
-        }
-
-        gen-search-widget {
-            width: 100%;
-            display: block;
-        }
-
-        .input-area {
-            background: #ffffff;
-            padding: 14px 16px;
-            border-top: 1px solid #ddd;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            padding: 13px 16px;
-            border: 1px solid #ccc;
-            border-radius: 999px;
-            outline: none;
-            font-size: 15px;
-        }
-
-        input[type="text"]:focus {
-            border-color: #1a73e8;
-            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
-        }
-
-        .icon-button {
-            width: 48px;
-            height: 48px;
-            border: none;
-            border-radius: 50%;
-            background: #eef4ff;
-            color: #1a73e8;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: 0.2s ease;
-            flex-shrink: 0;
-        }
-
-        .icon-button:hover {
-            background: #dce9ff;
-        }
-
-        .icon-button.listening {
-            background: #ffebee;
-            color: #d93025;
-            animation: pulse 1.2s infinite;
-        }
-
-        .send-button {
-            background-color: #1a73e8;
-            color: white;
-            border: none;
-            padding: 12px 22px;
-            border-radius: 999px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 15px;
-            transition: 0.2s ease;
-        }
-
-        .send-button:hover {
-            background-color: #155fc4;
-        }
-
-        .helper-text {
-            font-size: 12px;
-            color: #666;
+        /* 共通ヘッダー */
+        header { 
+            background-color: var(--primary-color); 
+            color: white; 
+            padding: 15px 20px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             text-align: center;
-            padding: 0 16px 10px;
-            background: #ffffff;
+        }
+
+        /* スタート画面のスタイル */
+        #start-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .start-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .start-btn:hover { transform: scale(1.05); }
+
+        /* チャット画面のスタイル（初期は非表示） */
+        #chat-interface {
+            display: none; 
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #chat-container { 
+            flex: 1; 
+            padding: 20px; 
+            overflow-y: auto; 
+        }
+
+        /* 挨拶メッセージの吹き出し */
+        .welcome-msg {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            max-width: 80%;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        /* 入力エリア */
+        .input-area { 
+            background: white; 
+            padding: 20px; 
+            border-top: 1px solid #ddd; 
+            display: flex; 
+            gap: 10px; 
+            align-items: center;
+        }
+
+        input[type="text"] { 
+            flex: 1; 
+            padding: 12px 20px; 
+            border: 1px solid #ccc; 
+            border-radius: 25px; 
+            outline: none; 
+            font-size: 16px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+
+        .mic-btn { color: #5f6368; }
+        .mic-btn.active { color: #d93025; animation: pulse 1.5s infinite; }
+
+        .send-btn { 
+            background-color: var(--primary-color); 
+            color: white; 
+            border: none; 
+            padding: 10px 25px; 
+            border-radius: 25px; 
+            cursor: pointer; 
+            font-weight: bold; 
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.08); }
-            100% { transform: scale(1); }
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
 
-        @media (max-width: 640px) {
-            .start-card {
-                padding: 32px 20px;
-            }
-
-            .start-card h1 {
-                font-size: 24px;
-            }
-
-            .message {
-                max-width: 92%;
-            }
-
-            .send-button {
-                padding: 12px 16px;
-            }
-        }
+        gen-search-widget { width: 100%; }
     </style>
 </head>
 <body>
 
-    <!-- 開始画面 -->
-    <div id="startScreen" class="start-screen">
-        <div class="start-card">
-            <h1>🔧 kubota WSM AI 整備マニュアル検索</h1>
-            <p>
-                PDF整備マニュアルから必要な情報を検索するAIチャットです。<br>
-                テキスト入力にも音声入力にも対応しています。
-            </p>
-            <button id="startChatBtn" class="start-btn">AIチャットを開始</button>
+<header>
+    <h1>🔧 kubota WSM AI 整備マニュアル検索.b</h1>
+</header>
+
+<div id="start-screen">
+    <h2>整備に関する疑問をAIに相談しましょう</h2>
+    <button class="start-btn" onclick="startChat()">AIチャットを開始</button>
+</div>
+
+<div id="chat-interface">
+    <div id="chat-container">
+        <div class="welcome-msg">
+            <strong>AIガイド:</strong><br>
+            こんにちは！あなたをサポートするAIガイドです。質問はなんですか？
         </div>
+        
+        <gen-search-widget
+            id="myWidget"
+            configId="ea87f861-8662-4a50-b0b4-598d12387543"
+            triggerId="searchWidgetTrigger">
+        </gen-search-widget>
     </div>
 
-    <!-- アプリ本体 -->
-    <div id="app" class="app hidden">
-        <header>
-            <h2>🔧 kubota WSM AI 整備マニュアル検索</h2>
-        </header>
-
-        <div id="chat-container">
-            <div id="messageList" class="message-list"></div>
-
-            <div class="widget-wrapper">
-                <gen-search-widget
-                    id="myWidget"
-                    configId="ea87f861-8662-4a50-b0b4-598d12387543"
-                    location="global"
-                    placeholder="ここで検索"
-                    alwaysOpened>
-                </gen-search-widget>
-            </div>
-        </div>
-
-        <div class="helper-text">
-            テキストで質問するか、マイクを押して音声で質問してください。追加質問もそのまま続けて入力できます。
-        </div>
-
-        <div class="input-area">
-            <input
-                type="text"
-                id="userInput"
-                placeholder="質問を入力してください..."
-                autocomplete="off"
-            />
-
-            <button
-                id="micButton"
-                class="icon-button"
-                type="button"
-                aria-label="音声入力"
-                title="音声入力">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 1 0 10 0z"/>
-                </svg>
-            </button>
-
-            <button id="searchBtn" class="send-button" type="button">検索</button>
-        </div>
+    <div class="input-area">
+        <button id="micBtn" class="icon-btn mic-btn" title="音声で入力">🎤</button>
+        <input type="text" id="userInput" placeholder="質問を入力してください...">
+        <button id="searchWidgetTrigger" class="send-btn">検索</button>
     </div>
+</div>
 
-    <script>
-        const CFG = {
-            projectId: "project-c482c56a-16d2-4b8c-b89",
-            location: "global",
-            configId: "ea87f861-8662-4a50-b0b4-598d12387543"
-        };
+<script>
+    const CFG = {
+        projectId: "project-c482c56a-16d2-4b8c-b89",
+        location: "global",
+        configId: "ea87f861-8662-4a50-b0b4-598d12387543"
+    };
 
-        const GREETING = "こんにちは！あなたサポートするAIガイドです。質問はなんですか？";
+    const startScreen = document.getElementById('start-screen');
+    const chatInterface = document.getElementById('chat-interface');
+    const widgetEl = document.getElementById('myWidget');
+    const inputEl = document.getElementById('userInput');
+    const triggerBtn = document.getElementById('searchWidgetTrigger');
+    const micBtn = document.getElementById('micBtn');
 
-        const startScreen = document.getElementById("startScreen");
-        const startChatBtn = document.getElementById("startChatBtn");
-        const app = document.getElementById("app");
-
-        const widgetEl = document.getElementById("myWidget");
-        const inputEl = document.getElementById("userInput");
-        const searchBtn = document.getElementById("searchBtn");
-        const micButton = document.getElementById("micButton");
-        const messageList = document.getElementById("messageList");
-        const chatContainer = document.getElementById("chat-container");
-
-        let recognition = null;
-        let isListening = false;
-        let greetingShown = false;
-
-        function scrollToBottom() {
-            setTimeout(() => {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }, 100);
+    /**
+     * チャット開始の切り替え
+     */
+    function startChat() {
+        startScreen.style.display = 'none';
+        chatInterface.style.display = 'flex';
+        
+        // ウィジェットの初期設定を適用
+        if (widgetEl) {
+            widgetEl.configId = CFG.configId;
+            widgetEl.location = CFG.location;
         }
+    }
 
-        function addMessage(text, type = "assistant") {
-            const msg = document.createElement("div");
-            msg.className = `message ${type}`;
-            msg.textContent = text;
-            messageList.appendChild(msg);
-            scrollToBottom();
-        }
+    /**
+     * 検索実行
+     */
+    async function performSearch() {
+        const query = inputEl.value.trim();
+        if (!query) return;
 
-        async function waitForWidgetReady(timeout = 10000) {
-            const start = Date.now();
-
-            while (Date.now() - start < timeout) {
-                if (widgetEl && typeof widgetEl.search === "function") {
-                    return true;
-                }
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
-
-            throw new Error("Widget not ready");
-        }
-
-        async function performSearch(customQuery = "") {
-            const query = (customQuery || inputEl.value).trim();
-            if (!query) return;
-
+        if (widgetEl && typeof widgetEl.search === 'function') {
             try {
-                await waitForWidgetReady();
-
-                // 任意：ユーザーが何を聞いたか上に表示
-                addMessage(`質問: ${query}`, "assistant");
-
-                // 同じ画面内の alwaysOpened なウィジェットで検索実行
                 await widgetEl.search(query);
-
-                inputEl.value = "";
-                scrollToBottom();
+                inputEl.value = ''; // 送信後にクリア
             } catch (err) {
                 console.error("Search failed:", err);
-                addMessage("検索の準備がまだできていません。少し待ってからもう一度お試しください。", "system");
             }
+        } else {
+            console.warn("Widget not ready. Retrying...");
+            setTimeout(performSearch, 500);
         }
+    }
 
-        function setupSpeechRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    /**
+     * 音声認識の設定 (Web Speech API)
+     */
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ja-JP';
+        recognition.interimResults = false;
 
-            if (!SpeechRecognition) {
-                micButton.disabled = true;
-                micButton.style.opacity = "0.5";
-                micButton.style.cursor = "not-allowed";
-                micButton.title = "このブラウザは音声入力に対応していません";
-                addMessage("このブラウザでは音声入力が利用できません。テキスト入力をご利用ください。", "system");
-                return;
-            }
-
-            recognition = new SpeechRecognition();
-            recognition.lang = "ja-JP";
-            recognition.interimResults = false;
-            recognition.continuous = false;
-            recognition.maxAlternatives = 1;
-
-            recognition.onstart = () => {
-                isListening = true;
-                micButton.classList.add("listening");
-                inputEl.placeholder = "音声を聞き取っています...";
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript.trim();
-                inputEl.value = transcript;
-                performSearch(transcript);
-            };
-
-            recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error);
-
-                let msg = "音声入力に失敗しました。もう一度お試しください。";
-
-                if (event.error === "not-allowed") {
-                    msg = "マイクの使用が許可されていません。ブラウザの設定でマイクを許可してください。";
-                } else if (event.error === "no-speech") {
-                    msg = "音声が検出されませんでした。もう一度お試しください。";
-                } else if (event.error === "audio-capture") {
-                    msg = "マイクが見つかりませんでした。接続を確認してください。";
-                }
-
-                addMessage(msg, "system");
-            };
-
-            recognition.onend = () => {
-                isListening = false;
-                micButton.classList.remove("listening");
-                inputEl.placeholder = "質問を入力してください...";
-            };
-        }
-
-        function startChat() {
-            startScreen.classList.add("hidden");
-            app.classList.remove("hidden");
-
-            if (!greetingShown) {
-                addMessage(GREETING, "assistant");
-                greetingShown = true;
-            }
-
-            inputEl.focus();
-            scrollToBottom();
-        }
-
-        startChatBtn.addEventListener("click", startChat);
-
-        searchBtn.addEventListener("click", () => {
-            performSearch();
+        micBtn.addEventListener('click', () => {
+            recognition.start();
+            micBtn.classList.add('active');
         });
 
-        inputEl.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                performSearch();
-            }
-        });
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            inputEl.value = transcript;
+            micBtn.classList.remove('active');
+            // 音声認識後、そのまま検索を実行する場合
+            // performSearch(); 
+        };
 
-        micButton.addEventListener("click", () => {
-            if (!recognition) return;
+        recognition.onerror = () => {
+            micBtn.classList.remove('active');
+            alert("音声認識に失敗しました。マイクの使用を許可してください。");
+        };
 
-            if (isListening) {
-                recognition.stop();
-            } else {
-                try {
-                    recognition.start();
-                } catch (err) {
-                    console.error("Mic start failed:", err);
-                }
-            }
-        });
+        recognition.onend = () => {
+            micBtn.classList.remove('active');
+        };
+    } else {
+        micBtn.style.display = 'none';
+        console.warn("このブラウザは音声認識に対応していません。");
+    }
 
-        window.addEventListener("load", () => {
-            if (widgetEl) {
-                widgetEl.configId = CFG.configId;
-                widgetEl.location = CFG.location;
-            }
+    // イベントリスナー
+    triggerBtn.addEventListener('click', performSearch);
+    inputEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
 
-            setupSpeechRecognition();
-        });
-    </script>
+</script>
+
 </body>
 </html>

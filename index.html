@@ -21,7 +21,6 @@
             height: 100vh;
         }
 
-        /* 共通ヘッダー */
         header { 
             background-color: var(--primary-color); 
             color: white; 
@@ -30,7 +29,7 @@
             text-align: center;
         }
 
-        /* スタート画面のスタイル */
+        /* スタート画面 */
         #start-screen {
             flex: 1;
             display: flex;
@@ -52,9 +51,7 @@
             transition: transform 0.2s;
         }
 
-        .start-btn:hover { transform: scale(1.05); }
-
-        /* チャット画面のスタイル（初期は非表示） */
+        /* チャット画面 */
         #chat-interface {
             display: none; 
             flex: 1;
@@ -66,9 +63,10 @@
             flex: 1; 
             padding: 20px; 
             overflow-y: auto; 
+            display: flex;
+            flex-direction: column;
         }
 
-        /* 挨拶メッセージの吹き出し */
         .welcome-msg {
             background: white;
             padding: 15px;
@@ -77,6 +75,12 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             max-width: 80%;
             border-left: 5px solid var(--primary-color);
+        }
+
+        /* ウィジェットがここに回答を表示するように調整 */
+        #widget-wrapper {
+            width: 100%;
+            min-height: 400px;
         }
 
         /* 入力エリア */
@@ -104,10 +108,8 @@
             font-size: 24px;
             cursor: pointer;
             padding: 5px;
-            transition: color 0.2s;
         }
 
-        .mic-btn { color: #5f6368; }
         .mic-btn.active { color: #d93025; animation: pulse 1.5s infinite; }
 
         .send-btn { 
@@ -125,14 +127,12 @@
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
-
-        gen-search-widget { width: 100%; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🔧 kubota WSM AI 整備マニュアル検索.b</h1>
+    <h1>🔧 kubota WSM AI 整備マニュアル検索.c</h1>
 </header>
 
 <div id="start-screen">
@@ -147,11 +147,13 @@
             こんにちは！あなたをサポートするAIガイドです。質問はなんですか？
         </div>
         
-        <gen-search-widget
-            id="myWidget"
-            configId="ea87f861-8662-4a50-b0b4-598d12387543"
-            triggerId="searchWidgetTrigger">
-        </gen-search-widget>
+        <div id="widget-wrapper">
+            <gen-search-widget
+                id="myWidget"
+                displayMode="inline"
+                configId="ea87f861-8662-4a50-b0b4-598d12387543">
+            </gen-search-widget>
+        </div>
     </div>
 
     <div class="input-area">
@@ -163,7 +165,6 @@
 
 <script>
     const CFG = {
-        projectId: "project-c482c56a-16d2-4b8c-b89",
         location: "global",
         configId: "ea87f861-8662-4a50-b0b4-598d12387543"
     };
@@ -175,48 +176,37 @@
     const triggerBtn = document.getElementById('searchWidgetTrigger');
     const micBtn = document.getElementById('micBtn');
 
-    /**
-     * チャット開始の切り替え
-     */
     function startChat() {
         startScreen.style.display = 'none';
         chatInterface.style.display = 'flex';
         
-        // ウィジェットの初期設定を適用
         if (widgetEl) {
             widgetEl.configId = CFG.configId;
             widgetEl.location = CFG.location;
         }
     }
 
-    /**
-     * 検索実行
-     */
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
         if (widgetEl && typeof widgetEl.search === 'function') {
             try {
+                // 検索実行
                 await widgetEl.search(query);
-                inputEl.value = ''; // 送信後にクリア
+                // 入力欄をクリア（回答は上のwidgetエリアに出る）
+                inputEl.value = '';
             } catch (err) {
                 console.error("Search failed:", err);
             }
-        } else {
-            console.warn("Widget not ready. Retrying...");
-            setTimeout(performSearch, 500);
         }
     }
 
-    /**
-     * 音声認識の設定 (Web Speech API)
-     */
+    // 音声認識 (Web Speech API)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = 'ja-JP';
-        recognition.interimResults = false;
 
         micBtn.addEventListener('click', () => {
             recognition.start();
@@ -224,32 +214,16 @@
         });
 
         recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            inputEl.value = transcript;
-            micBtn.classList.remove('active');
-            // 音声認識後、そのまま検索を実行する場合
-            // performSearch(); 
-        };
-
-        recognition.onerror = () => {
-            micBtn.classList.remove('active');
-            alert("音声認識に失敗しました。マイクの使用を許可してください。");
-        };
-
-        recognition.onend = () => {
+            inputEl.value = event.results[0][0].transcript;
             micBtn.classList.remove('active');
         };
-    } else {
-        micBtn.style.display = 'none';
-        console.warn("このブラウザは音声認識に対応していません。");
+        recognition.onend = () => micBtn.classList.remove('active');
     }
 
-    // イベントリスナー
     triggerBtn.addEventListener('click', performSearch);
     inputEl.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performSearch();
     });
-
 </script>
 
 </body>

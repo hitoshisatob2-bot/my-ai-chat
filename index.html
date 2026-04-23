@@ -3,130 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索</title>
+    <title>kubota WSM AI 整備マニュアル検索.i</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
-        :root {
-            --primary-color: #1a73e8;
-            --bg-color: #f5f7f9;
-        }
-
-        body { 
-            font-family: 'Helvetica Neue', Arial, sans-serif; 
-            margin: 0; 
-            background-color: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        header { 
-            background-color: var(--primary-color); 
-            color: white; 
-            padding: 15px 20px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
+        :root { --primary-color: #1a73e8; --bg-color: #f5f7f9; }
+        body { font-family: sans-serif; margin: 0; background-color: var(--bg-color); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { background-color: var(--primary-color); color: white; padding: 15px; text-align: center; flex-shrink: 0; }
+        
         /* スタート画面 */
-        #start-screen {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-        }
+        #start-screen { position: fixed; inset: 0; background: var(--bg-color); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .start-btn { background: var(--primary-color); color: white; border: none; padding: 15px 30px; border-radius: 30px; cursor: pointer; font-size: 18px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
-        .start-btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 30px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        /* チャット画面 */
-        #chat-interface {
-            display: none; 
-            flex: 1;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        #chat-container { 
-            flex: 1; 
-            padding: 20px; 
-            overflow-y: auto; 
-        }
-
-        .welcome-msg {
-            background: white;
-            padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            max-width: 80%;
-            border-left: 5px solid var(--primary-color);
-        }
+        /* チャットメイン画面 */
+        #chat-interface { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        #chat-container { flex: 1; padding: 20px; overflow-y: auto; }
+        
+        .welcome-msg { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
         /* 入力エリア */
-        .input-area { 
-            background: white; 
-            padding: 20px; 
-            border-top: 1px solid #ddd; 
-            display: flex; 
-            gap: 10px; 
-            align-items: center;
-            position: relative;
-            z-index: 10; /* reCAPTCHAより上に表示させる */
-        }
+        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; }
+        .send-btn { background: var(--primary-color); color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        .send-btn:disabled { background: #ccc; }
 
-        input[type="text"] { 
-            flex: 1; 
-            padding: 12px 20px; 
-            border: 1px solid #ccc; 
-            border-radius: 25px; 
-            outline: none; 
-            font-size: 16px;
-        }
+        /* reCAPTCHAバッジの位置 */
+        .grecaptcha-badge { bottom: 90px !important; }
 
-        .send-btn { 
-            background-color: var(--primary-color); 
-            color: white; 
-            border: none; 
-            padding: 10px 25px; 
-            border-radius: 25px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            min-width: 80px;
-        }
-
-        /* reCAPTCHAバッジの位置を調整 */
-        .grecaptcha-badge { 
-            bottom: 85px !important; /* 入力欄とかぶらないように上に移動 */
-        }
-
-        /* ウィジェットが勝手に出す検索窓を非表示にする（自前を使うため） */
-        gen-search-widget::part(search-box) {
-            display: none;
-        }
+        /* ウィジェットの高さ確保 */
+        gen-search-widget { display: block; min-height: 500px; width: 100%; }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>🔧 kubota WSM AI 整備マニュアル検索.e</h1>
-</header>
-
 <div id="start-screen">
-    <h2>整備に関する疑問をAIに相談しましょう</h2>
+    <h2>🔧 kubota WSM AI 整備マニュアル.i</h2>
     <button class="start-btn" onclick="startChat()">AIチャットを開始</button>
 </div>
+
+<header>
+    <h1>🔧 kubota WSM AI 整備マニュアル検索</h1>
+</header>
 
 <div id="chat-interface">
     <div id="chat-container">
@@ -137,14 +54,13 @@
         
         <gen-search-widget
             id="myWidget"
-            displayMode="inline"
             configId="ea87f861-8662-4a50-b0b4-598d12387543"
-            location="global">
+            location="global"
+            displayMode="inline">
         </gen-search-widget>
     </div>
 
     <div class="input-area">
-        <button id="micBtn" class="icon-btn" style="background:none; border:none; font-size:20px; cursor:pointer;">🎤</button>
         <input type="text" id="userInput" placeholder="質問を入力してください...">
         <button id="searchBtn" class="send-btn">検索</button>
     </div>
@@ -155,72 +71,47 @@
     const inputEl = document.getElementById('userInput');
     const searchBtn = document.getElementById('searchBtn');
     const startScreen = document.getElementById('start-screen');
-    const chatInterface = document.getElementById('chat-interface');
 
-    // ウィジェットが準備できたかどうかのフラグ
-    let isWidgetReady = false;
-
-    // ウィジェットのロード完了を監視
-    window.addEventListener('gen-search-widget-loaded', () => {
-        console.log("Widget Loaded Event Fired");
-        isWidgetReady = true;
-    });
-
+    // 「開始ボタン」でスタート画面を消すだけにする（裏でウィジェットはロード済み）
     function startChat() {
-        startScreen.style.display = 'none';
-        chatInterface.style.display = 'flex';
-        
-        // 開始時に強制的にIDを再セット
-        if (widgetEl) {
-            widgetEl.configId = "ea87f861-8662-4a50-b0b4-598d12387543";
-            widgetEl.location = "global";
-        }
+        startScreen.style.opacity = '0';
+        setTimeout(() => {
+            startScreen.style.display = 'none';
+        }, 300);
     }
 
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
-        // メソッドが存在するか、またはウィジェットが初期化されているか確認
+        searchBtn.disabled = true;
+        const originalText = searchBtn.innerText;
+        searchBtn.innerText = "探索中";
+
+        // メソッドの存在チェックをより厳密に
         if (widgetEl && typeof widgetEl.search === 'function') {
             try {
-                searchBtn.disabled = true;
-                searchBtn.innerText = "...";
-                
                 await widgetEl.search(query);
-                
                 inputEl.value = '';
-                console.log("Search done.");
+                console.log("Search dispatched successfully");
             } catch (err) {
-                console.error("Search failed:", err);
+                console.error("Search error:", err);
                 alert("検索中にエラーが発生しました。");
-            } finally {
-                searchBtn.disabled = false;
-                searchBtn.innerText = "検索";
             }
         } else {
-            console.log("Waiting for widget...");
-            // まだ準備ができていない場合は、少し待って自動で再実行
+            console.warn("Widget not ready yet. Retrying in 1s...");
             setTimeout(performSearch, 1000);
+            return;
         }
+
+        searchBtn.disabled = false;
+        searchBtn.innerText = originalText;
     }
 
     searchBtn.addEventListener('click', performSearch);
     inputEl.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performSearch();
     });
-
-    // 音声認識
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ja-JP';
-        document.getElementById('micBtn').addEventListener('click', () => recognition.start());
-        recognition.onresult = (event) => {
-            inputEl.value = event.results[0][0].transcript;
-            performSearch();
-        };
-    }
 </script>
 
 </body>

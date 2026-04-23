@@ -82,6 +82,8 @@
             display: flex; 
             gap: 10px; 
             align-items: center;
+            position: relative;
+            z-index: 10; /* reCAPTCHAより上に表示させる */
         }
 
         input[type="text"] { 
@@ -93,13 +95,6 @@
             font-size: 16px;
         }
 
-        .icon-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-        }
-
         .send-btn { 
             background-color: var(--primary-color); 
             color: white; 
@@ -108,23 +103,24 @@
             border-radius: 25px; 
             cursor: pointer; 
             font-weight: bold; 
+            min-width: 80px;
         }
 
-        .send-btn:disabled {
-            background-color: #ccc;
+        /* reCAPTCHAバッジの位置を調整 */
+        .grecaptcha-badge { 
+            bottom: 85px !important; /* 入力欄とかぶらないように上に移動 */
         }
 
-        /* ウィジェット表示エリア */
-        #widget-container {
-            margin-top: 10px;
-            width: 100%;
+        /* ウィジェットが勝手に出す検索窓を非表示にする（自前を使うため） */
+        gen-search-widget::part(search-box) {
+            display: none;
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🔧 kubota WSM AI 整備マニュアル検索.d</h1>
+    <h1>🔧 kubota WSM AI 整備マニュアル検索.e</h1>
 </header>
 
 <div id="start-screen">
@@ -139,18 +135,16 @@
             こんにちは！あなたをサポートするAIガイドです。質問はなんですか？
         </div>
         
-        <div id="widget-container">
-            <gen-search-widget
-                id="myWidget"
-                displayMode="inline"
-                configId="ea87f861-8662-4a50-b0b4-598d12387543"
-                location="global">
-            </gen-search-widget>
-        </div>
+        <gen-search-widget
+            id="myWidget"
+            displayMode="inline"
+            configId="ea87f861-8662-4a50-b0b4-598d12387543"
+            location="global">
+        </gen-search-widget>
     </div>
 
     <div class="input-area">
-        <button id="micBtn" class="icon-btn">🎤</button>
+        <button id="micBtn" class="icon-btn" style="background:none; border:none; font-size:20px; cursor:pointer;">🎤</button>
         <input type="text" id="userInput" placeholder="質問を入力してください...">
         <button id="searchBtn" class="send-btn">検索</button>
     </div>
@@ -163,51 +157,60 @@
     const startScreen = document.getElementById('start-screen');
     const chatInterface = document.getElementById('chat-interface');
 
+    // ウィジェットが準備できたかどうかのフラグ
+    let isWidgetReady = false;
+
+    // ウィジェットのロード完了を監視
+    window.addEventListener('gen-search-widget-loaded', () => {
+        console.log("Widget Loaded Event Fired");
+        isWidgetReady = true;
+    });
+
     function startChat() {
         startScreen.style.display = 'none';
         chatInterface.style.display = 'flex';
-        console.log("Chat started. Widget state:", widgetEl);
+        
+        // 開始時に強制的にIDを再セット
+        if (widgetEl) {
+            widgetEl.configId = "ea87f861-8662-4a50-b0b4-598d12387543";
+            widgetEl.location = "global";
+        }
     }
 
-    /**
-     * 検索を実行する関数
-     */
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
-        console.log("Attempting search for:", query);
-
-        // ウィジェットがロードされているか、searchメソッドが存在するか確認
+        // メソッドが存在するか、またはウィジェットが初期化されているか確認
         if (widgetEl && typeof widgetEl.search === 'function') {
             try {
                 searchBtn.disabled = true;
-                searchBtn.innerText = "検索中...";
+                searchBtn.innerText = "...";
                 
                 await widgetEl.search(query);
                 
                 inputEl.value = '';
-                console.log("Search successful");
+                console.log("Search done.");
             } catch (err) {
-                console.error("Search method error:", err);
+                console.error("Search failed:", err);
+                alert("検索中にエラーが発生しました。");
             } finally {
                 searchBtn.disabled = false;
                 searchBtn.innerText = "検索";
             }
         } else {
-            console.warn("Widget search method not ready yet. Waiting...");
-            // ウィジェットの準備ができるまで0.5秒待って再試行
-            setTimeout(performSearch, 500);
+            console.log("Waiting for widget...");
+            // まだ準備ができていない場合は、少し待って自動で再実行
+            setTimeout(performSearch, 1000);
         }
     }
 
-    // イベント設定
     searchBtn.addEventListener('click', performSearch);
     inputEl.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performSearch();
     });
 
-    // 音声認識 (簡易版)
+    // 音声認識
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();

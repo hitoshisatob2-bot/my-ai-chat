@@ -3,45 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索.k</title>
+    <title>kubota WSM AI 整備マニュアル検索.L</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
         :root { --primary-color: #1a73e8; --bg-color: #f5f7f9; }
-        body { font-family: sans-serif; margin: 0; background-color: var(--bg-color); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        header { background-color: var(--primary-color); color: white; padding: 15px; text-align: center; flex-shrink: 0; }
-
-        #start-screen { position: fixed; inset: 0; background: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .start-btn { background: var(--primary-color); color: white; border: none; padding: 18px 40px; border-radius: 50px; cursor: pointer; font-size: 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        body { font-family: sans-serif; margin: 0; background-color: var(--bg-color); display: flex; flex-direction: column; height: 100vh; }
+        header { background-color: var(--primary-color); color: white; padding: 15px; text-align: center; }
 
         #chat-interface { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         #chat-container { flex: 1; padding: 20px; overflow-y: auto; }
+        
         .welcome-msg { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
-        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
-        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; }
-        .send-btn { background: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; min-width: 80px; }
-        
+        /* 入力エリア：常に操作可能に */
+        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; }
+        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; background: white !important; }
+        .send-btn { background: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+
         /* reCAPTCHA位置 */
         .grecaptcha-badge { bottom: 85px !important; }
 
-        /* ウィジェットの高さを十分に確保（これがないと回答が表示されない場合があります） */
-        #widget-wrapper { min-height: 600px; width: 100%; }
-        gen-search-widget { display: block; width: 100%; height: 100%; }
+        /* ウィジェットエリア：あえて標準の検索窓を出してみるテスト */
+        #widget-wrapper { min-height: 600px; width: 100%; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-<div id="start-screen">
-    <h2 style="margin-bottom: 30px;">🔧 kubota WSM AI 整備マニュアル</h2>
-    <button class="start-btn" onclick="startChat()">AIチャットを開始</button>
-</div>
-
-<header><h1>🔧 kubota WSM AI 整備マニュアル検索.k</h1></header>
+<header><h1>🔧 kubota WSM AI 整備マニュアル検索.L</h1></header>
 
 <div id="chat-interface">
     <div id="chat-container">
-        <div class="welcome-msg">こんにちは！AIガイドです。整備に関する質問をどうぞ。</div>
+        <div class="welcome-msg">AIガイドです。質問を入力して「検索」を押してください。</div>
+        
         <div id="widget-wrapper">
             <gen-search-widget
                 id="myWidget"
@@ -53,7 +47,7 @@
     </div>
 
     <div class="input-area">
-        <input type="text" id="userInput" placeholder="質問を入力...">
+        <input type="text" id="userInput" placeholder="ここに質問を入力...">
         <button id="searchBtn" class="send-btn">検索</button>
     </div>
 </div>
@@ -63,44 +57,39 @@
     const inputEl = document.getElementById('userInput');
     const searchBtn = document.getElementById('searchBtn');
 
-    function startChat() {
-        document.getElementById('start-screen').style.display = 'none';
-    }
-
+    // 検索実行関数
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
+        console.log("検索開始:", query);
+        
+        // ボタンを一時的に「送信中」にするが、入力欄はロックしない
+        searchBtn.innerText = "送信中";
         searchBtn.disabled = true;
-        searchBtn.innerText = "確認中";
 
-        // 【重要】ウィジェットが「検索可能」になるまで最大5秒待機するループ
-        let attempts = 0;
-        while (attempts < 10) {
-            // Shadow Root（中身）が生成されているか、search関数があるかを確認
+        try {
+            // ウィジェットの存在チェック
             if (widgetEl && typeof widgetEl.search === 'function') {
-                try {
-                    await widgetEl.search(query);
-                    inputEl.value = '';
-                    searchBtn.disabled = false;
-                    searchBtn.innerText = "検索";
-                    return; // 成功したら終了
-                } catch (e) {
-                    console.error("Search call failed:", e);
-                }
+                await widgetEl.search(query);
+                inputEl.value = '';
+                console.log("ウィジェットへの送信成功");
+            } else {
+                console.error("ウィジェットのsearch関数が見つかりません。");
+                alert("AIの準備ができていません。ページ上部に出現する検索窓に直接入力してみてください。");
             }
-            console.log("Waiting for widget readiness... attempt " + (attempts + 1));
-            await new Promise(r => setTimeout(r, 500)); // 0.5秒待機
-            attempts++;
+        } catch (err) {
+            console.error("検索エラー:", err);
+        } finally {
+            searchBtn.innerText = "検索";
+            searchBtn.disabled = false;
         }
-
-        alert("ウィジェットの準備が整いません。ページを再読み込みしてください。");
-        searchBtn.disabled = false;
-        searchBtn.innerText = "検索";
     }
 
     searchBtn.addEventListener('click', performSearch);
-    inputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
+    inputEl.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
 </script>
 </body>
 </html>

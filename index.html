@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索.L</title>
+    <title>kubota WSM AI 整備マニュアル検索.M</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
@@ -16,21 +16,26 @@
         
         .welcome-msg { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
-        /* 入力エリア：常に操作可能に */
-        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; }
-        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; background: white !important; }
+        /* 入力エリア：reCAPTCHAより前面に配置 */
+        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; position: relative; z-index: 1000; }
+        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; }
         .send-btn { background: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
 
-        /* reCAPTCHA位置 */
-        .grecaptcha-badge { bottom: 85px !important; }
+        /* reCAPTCHAアイコンの修正：左下に移動させ、ボタンとの重なりを完全に回避 */
+        .grecaptcha-badge { 
+            width: 70px !important; 
+            overflow: hidden !important; 
+            transition: all 0.3s ease !important;
+            left: 10px !important; /* 右から左へ移動 */
+            bottom: 80px !important; 
+        }
 
-        /* ウィジェットエリア：あえて標準の検索窓を出してみるテスト */
         #widget-wrapper { min-height: 600px; width: 100%; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-<header><h1>🔧 kubota WSM AI 整備マニュアル検索.L</h1></header>
+<header><h1>🔧 kubota WSM AI 整備マニュアル検索.M</h1></header>
 
 <div id="chat-interface">
     <div id="chat-container">
@@ -57,39 +62,42 @@
     const inputEl = document.getElementById('userInput');
     const searchBtn = document.getElementById('searchBtn');
 
-    // 検索実行関数
+    // ページ読み込み時にウィジェットをリフレッシュする
+    window.addEventListener('load', () => {
+        console.log("Page loaded. Initializing widget...");
+    });
+
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
-        console.log("検索開始:", query);
-        
-        // ボタンを一時的に「送信中」にするが、入力欄はロックしない
-        searchBtn.innerText = "送信中";
+        searchBtn.innerText = "通信中";
         searchBtn.disabled = true;
 
-        try {
-            // ウィジェットの存在チェック
-            if (widgetEl && typeof widgetEl.search === 'function') {
+        // タイムアウトエラー対策：関数が存在するか直前に再確認
+        if (widgetEl && typeof widgetEl.search === 'function') {
+            try {
                 await widgetEl.search(query);
                 inputEl.value = '';
-                console.log("ウィジェットへの送信成功");
-            } else {
-                console.error("ウィジェットのsearch関数が見つかりません。");
-                alert("AIの準備ができていません。ページ上部に出現する検索窓に直接入力してみてください。");
+                console.log("検索成功");
+            } catch (err) {
+                console.error("Search failed:", err);
+                if (err.message.includes('reCAPTCHA')) {
+                    alert("セキュリティ認証（reCAPTCHA）でエラーが発生しました。左下のアイコンを確認し、ページを再読み込みしてください。");
+                }
             }
-        } catch (err) {
-            console.error("検索エラー:", err);
-        } finally {
-            searchBtn.innerText = "検索";
-            searchBtn.disabled = false;
+        } else {
+            alert("AIウィジェットがまだ完全に起動していません。数秒待ってからやり直してください。");
+            // 強制的に再描画を促す
+            widgetEl.setAttribute('configId', 'ea87f861-8662-4a50-b0b4-598d12387543');
         }
+
+        searchBtn.innerText = "検索";
+        searchBtn.disabled = false;
     }
 
     searchBtn.addEventListener('click', performSearch);
-    inputEl.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performSearch();
-    });
+    inputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
 </script>
 </body>
 </html>

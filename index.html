@@ -3,101 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索.M</title>
+    <title>kubota WSM AI 整備マニュアル検索.N</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
-        :root { --primary-color: #1a73e8; --bg-color: #f5f7f9; }
-        body { font-family: sans-serif; margin: 0; background-color: var(--bg-color); display: flex; flex-direction: column; height: 100vh; }
-        header { background-color: var(--primary-color); color: white; padding: 15px; text-align: center; }
-
-        #chat-interface { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        #chat-container { flex: 1; padding: 20px; overflow-y: auto; }
-        
-        .welcome-msg { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-
-        /* 入力エリア：reCAPTCHAより前面に配置 */
-        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; position: relative; z-index: 1000; }
-        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; }
-        .send-btn { background: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-
-        /* reCAPTCHAアイコンの修正：左下に移動させ、ボタンとの重なりを完全に回避 */
-        .grecaptcha-badge { 
-            width: 70px !important; 
-            overflow: hidden !important; 
-            transition: all 0.3s ease !important;
-            left: 10px !important; /* 右から左へ移動 */
-            bottom: 80px !important; 
-        }
-
-        #widget-wrapper { min-height: 600px; width: 100%; margin-top: 20px; }
+        body { font-family: sans-serif; margin: 0; padding: 20px; background-color: #f5f7f9; }
+        header { background-color: #1a73e8; color: white; padding: 15px; text-align: center; border-radius: 8px; margin-bottom: 20px; }
+        .instruction { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        /* ウィジェットが表示されるエリア */
+        #search-widget-container { min-height: 600px; background: white; border-radius: 8px; padding: 10px; }
     </style>
 </head>
 <body>
 
-<header><h1>🔧 kubota WSM AI 整備マニュアル検索.M</h1></header>
+<header><h1>🔧 kubota WSM AI 整備マニュアル検索.N</h1></header>
 
-<div id="chat-interface">
-    <div id="chat-container">
-        <div class="welcome-msg">AIガイドです。質問を入力して「検索」を押してください。</div>
-        
-        <div id="widget-wrapper">
-            <gen-search-widget
-                id="myWidget"
-                configId="ea87f861-8662-4a50-b0b4-598d12387543"
-                location="global"
-                displayMode="inline">
-            </gen-search-widget>
-        </div>
-    </div>
-
-    <div class="input-area">
-        <input type="text" id="userInput" placeholder="ここに質問を入力...">
-        <button id="searchBtn" class="send-btn">検索</button>
-    </div>
+<div class="instruction">
+    <p><strong>【動作確認手順】</strong></p>
+    <ol>
+        <li>下のエリアに「ここで検索」というリンク、または検索窓が表示されるのを待ってください。</li>
+        <li>表示されたら、そこをクリックして直接質問を入力してください。</li>
+    </ol>
 </div>
 
-<script>
-    const widgetEl = document.getElementById('myWidget');
-    const inputEl = document.getElementById('userInput');
-    const searchBtn = document.getElementById('searchBtn');
+<div id="search-widget-container">
+    <gen-search-widget
+        configId="ea87f861-8662-4a50-b0b4-598d12387543"
+        location="global">
+    </gen-search-widget>
+</div>
 
-    // ページ読み込み時にウィジェットをリフレッシュする
-    window.addEventListener('load', () => {
-        console.log("Page loaded. Initializing widget...");
-    });
-
-    async function performSearch() {
-        const query = inputEl.value.trim();
-        if (!query) return;
-
-        searchBtn.innerText = "通信中";
-        searchBtn.disabled = true;
-
-        // タイムアウトエラー対策：関数が存在するか直前に再確認
-        if (widgetEl && typeof widgetEl.search === 'function') {
-            try {
-                await widgetEl.search(query);
-                inputEl.value = '';
-                console.log("検索成功");
-            } catch (err) {
-                console.error("Search failed:", err);
-                if (err.message.includes('reCAPTCHA')) {
-                    alert("セキュリティ認証（reCAPTCHA）でエラーが発生しました。左下のアイコンを確認し、ページを再読み込みしてください。");
-                }
-            }
-        } else {
-            alert("AIウィジェットがまだ完全に起動していません。数秒待ってからやり直してください。");
-            // 強制的に再描画を促す
-            widgetEl.setAttribute('configId', 'ea87f861-8662-4a50-b0b4-598d12387543');
-        }
-
-        searchBtn.innerText = "検索";
-        searchBtn.disabled = false;
-    }
-
-    searchBtn.addEventListener('click', performSearch);
-    inputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
-</script>
 </body>
 </html>

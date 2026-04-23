@@ -3,46 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索.i</title>
+    <title>kubota WSM AI 整備マニュアル検索.j</title>
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
         :root { --primary-color: #1a73e8; --bg-color: #f5f7f9; }
         body { font-family: sans-serif; margin: 0; background-color: var(--bg-color); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        header { background-color: var(--primary-color); color: white; padding: 15px; text-align: center; flex-shrink: 0; }
-        
-        /* スタート画面 */
-        #start-screen { position: fixed; inset: 0; background: var(--bg-color); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .start-btn { background: var(--primary-color); color: white; border: none; padding: 15px 30px; border-radius: 30px; cursor: pointer; font-size: 18px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        header { background-color: var(--primary-color); color: white; padding: 15px; text-align: center; }
 
-        /* チャットメイン画面 */
-        #chat-interface { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        /* スタート画面：確実にクリックできるように調整 */
+        #start-screen { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: white; 
+            z-index: 9999; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            transition: opacity 0.5s ease;
+        }
+        .start-btn { 
+            background: var(--primary-color); 
+            color: white; 
+            border: none; 
+            padding: 18px 40px; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            font-size: 20px; 
+            font-weight: bold; 
+            box-shadow: 0 4px 15px rgba(26, 115, 232, 0.4);
+            pointer-events: auto; /* 確実にクリックを通す */
+        }
+
+        #chat-interface { flex: 1; display: flex; flex-direction: column; visibility: hidden; }
         #chat-container { flex: 1; padding: 20px; overflow-y: auto; }
-        
         .welcome-msg { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
-        /* 入力エリア */
-        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        .input-area { background: white; padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; align-items: center; }
         input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ccc; border-radius: 25px; font-size: 16px; outline: none; }
-        .send-btn { background: var(--primary-color); color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-        .send-btn:disabled { background: #ccc; }
-
-        /* reCAPTCHAバッジの位置 */
-        .grecaptcha-badge { bottom: 90px !important; }
-
-        /* ウィジェットの高さ確保 */
-        gen-search-widget { display: block; min-height: 500px; width: 100%; }
+        .send-btn { background: var(--primary-color); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        
+        .grecaptcha-badge { bottom: 85px !important; }
+        gen-search-widget { display: block; width: 100%; min-height: 500px; }
     </style>
 </head>
 <body>
 
 <div id="start-screen">
-    <h2>🔧 kubota WSM AI 整備マニュアル.i</h2>
-    <button class="start-btn" onclick="startChat()">AIチャットを開始</button>
+    <h2 style="margin-bottom: 30px; color: #333;">🔧 kubota WSM AI 整備マニュアル</h2>
+    <button type="button" class="start-btn" id="realStartBtn">AIチャットを開始</button>
 </div>
 
 <header>
-    <h1>🔧 kubota WSM AI 整備マニュアル検索</h1>
+    <h1>🔧 kubota WSM AI 整備マニュアル検索.j</h1>
 </header>
 
 <div id="chat-interface">
@@ -67,45 +82,47 @@
 </div>
 
 <script>
+    const startScreen = document.getElementById('start-screen');
+    const realStartBtn = document.getElementById('realStartBtn');
+    const chatInterface = document.getElementById('chat-interface');
     const widgetEl = document.getElementById('myWidget');
     const inputEl = document.getElementById('userInput');
     const searchBtn = document.getElementById('searchBtn');
-    const startScreen = document.getElementById('start-screen');
 
-    // 「開始ボタン」でスタート画面を消すだけにする（裏でウィジェットはロード済み）
-    function startChat() {
+    // チャット開始処理
+    realStartBtn.addEventListener('click', () => {
+        console.log("Start button clicked!");
         startScreen.style.opacity = '0';
         setTimeout(() => {
             startScreen.style.display = 'none';
-        }, 300);
-    }
+            chatInterface.style.visibility = 'visible';
+        }, 500);
+    });
 
     async function performSearch() {
         const query = inputEl.value.trim();
         if (!query) return;
 
         searchBtn.disabled = true;
-        const originalText = searchBtn.innerText;
-        searchBtn.innerText = "探索中";
+        searchBtn.innerText = "...";
 
-        // メソッドの存在チェックをより厳密に
+        // ウィジェットの状態を確認して実行
         if (widgetEl && typeof widgetEl.search === 'function') {
             try {
                 await widgetEl.search(query);
                 inputEl.value = '';
-                console.log("Search dispatched successfully");
+                console.log("Search executed.");
             } catch (err) {
                 console.error("Search error:", err);
-                alert("検索中にエラーが発生しました。");
             }
         } else {
-            console.warn("Widget not ready yet. Retrying in 1s...");
+            console.warn("Waiting for widget...");
             setTimeout(performSearch, 1000);
             return;
         }
 
         searchBtn.disabled = false;
-        searchBtn.innerText = originalText;
+        searchBtn.innerText = "検索";
     }
 
     searchBtn.addEventListener('click', performSearch);

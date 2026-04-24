@@ -3,132 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI ガイド.f</title>
+    <title>kubota WSM AI ガイド.g</title>
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; overflow: hidden; }
-        
-        /* 左側：チャットエリア */
-        #chat-container { width: 50%; display: flex; flex-direction: column; border-right: 2px solid #ddd; background: white; }
-        header { background: #273246; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2em; }
-        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-        
-        /* メッセージデザイン */
-        .msg { max-width: 90%; padding: 15px; border-radius: 8px; line-height: 1.7; font-size: 14px; color: #333; }
-        .ai-bubble { background: #fff; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .user-bubble { background: #85e249; align-self: flex-end; font-weight: bold; }
-        
-        /* 右側：PDFビューワー */
-        #pdf-container { width: 50%; background: #525659; display: flex; flex-direction: column; }
-        iframe { width: 100%; height: 100%; border: none; }
-
-        /* 入力エリア */
-        .input-bar { padding: 20px; background: white; border-top: 1px solid #ddd; display: flex; gap: 10px; }
-        #user-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
-        #send-btn { background: #1a73e8; color: white; border: none; padding: 0 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        
-        /* 引用（ページ表示）ボタン */
-        .ref-link { color: #1a73e8; text-decoration: underline; cursor: pointer; font-size: 0.9em; margin-top: 10px; display: block; }
-        .loading { display: none; text-align: center; color: #666; font-size: 12px; margin-bottom: 10px; }
-        
-        b { color: #d32f2f; } /* 強調文字 */
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+        /* ウィジェットを画面いっぱいに広げて、以前のサイドバイサイド表示を再現 */
+        gen-search-widget {
+            display: block;
+            height: 100%;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
 
-<div id="chat-container">
-    <header>kubota WSM AI ガイド.f</header>
-    <div id="chat-history">
-        <div class="msg ai-bubble">こんにちは！機種ごとの整備手順をお教えします。何を確認しますか？</div>
-    </div>
-    <div id="loading" class="loading">マニュアルから最適な手順を抽出しています...</div>
-    <div class="input-bar">
-        <input type="text" id="user-input" placeholder="例：SL280のボンネットの開け方を教えて">
-        <button id="send-btn" onclick="handleSend()">送信</button>
-    </div>
-</div>
+    <gen-search-widget
+        configId="YOUR_CONFIG_ID"
+        location="global">
+    </gen-search-widget>
 
-<div id="pdf-container">
-    <iframe id="pdf-viewer" src=""></iframe>
-</div>
-
-<script>
-    const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query";
-
-    function appendMessage(text, isUser, pdfData = null) {
-        const history = document.getElementById('chat-history');
-        const bubble = document.createElement('div');
-        bubble.className = isUser ? "msg user-bubble" : "msg ai-bubble";
-        
-        // テキストの整形（改行と太字）
-        let formattedText = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        bubble.innerHTML = formattedText;
-
-        if (pdfData) {
-            const link = document.createElement('a');
-            link.className = "ref-link";
-            link.innerHTML = `● 根拠となるマニュアル（${pdfData.page}ページ）を確認する`;
-            link.onclick = () => {
-                document.getElementById('pdf-viewer').src = pdfData.url;
-            };
-            bubble.appendChild(link);
-            // 自動で右側にも表示させる
-            document.getElementById('pdf-viewer').src = pdfData.url;
-        }
-
-        history.appendChild(bubble);
-        history.scrollTop = history.scrollHeight;
-    }
-
-    async function handleSend() {
-        const input = document.getElementById('user-input');
-        const query = input.value.trim();
-        if (!query) return;
-
-        appendMessage(query, true);
-        input.value = "";
-        document.getElementById('loading').style.display = "block";
-
-        try {
-            const res = await fetch(CLOUD_RUN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: query })
-            });
-            const data = await res.json();
-
-            let answer = data.summary?.summaryText || "該当する手順が見つかりませんでした。";
-            let pdfInfo = null;
-
-            if (data.results && data.results.length > 0) {
-                const doc = data.results[0].document.derivedStructData;
-                let rawLink = doc.link || doc.formattedUrl;
-                
-                // Cloud Storage URLの置換
-                if (rawLink.startsWith('gs://')) {
-                    rawLink = rawLink.replace('gs://', 'https://storage.googleapis.com/');
-                }
-
-                // ページ番号の取得
-                let pageNum = 1;
-                if (data.results[0].document.derivedStructData.extractive_segments) {
-                    pageNum = data.results[0].document.derivedStructData.extractive_segments[0].pageNumber || 1;
-                }
-                
-                pdfInfo = {
-                    url: `${rawLink}#page=${pageNum}`,
-                    page: pageNum
-                };
-            }
-
-            appendMessage(answer, false, pdfInfo);
-        } catch (e) {
-            appendMessage("エラーが発生しました。接続を確認してください。", false);
-        } finally {
-            document.getElementById('loading').style.display = "none";
-        }
-    }
-
-    document.getElementById('user-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
-</script>
+    <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
 </body>
 </html>

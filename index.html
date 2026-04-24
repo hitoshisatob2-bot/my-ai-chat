@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索</title>
+    <title>kubota WSM AI 整備マニュアル.R</title>
     
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
-        /* 全体のデザイン設定 */
+        /* 全体のデザイン（スマホアプリ風の背景） */
         body { 
             font-family: 'Helvetica Neue', Arial, sans-serif; 
             margin: 0; 
-            padding: 0;
             background-color: #f0f4f8; 
             display: flex; 
             flex-direction: column; 
-            align-items: center; 
             height: 100vh;
         }
 
@@ -24,105 +22,103 @@
         header { 
             background-color: #1a73e8; 
             color: white; 
-            width: 100%; 
-            padding: 20px 0; 
+            padding: 15px 20px; 
             text-align: center; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
         }
-        
-        header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
+        header h1 { margin: 0; font-size: 20px; }
 
-        /* メインコンテンツエリア */
-        .main-container {
+        /* チャット画面のメインコンテナ */
+        .chat-container {
             flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            width: 100%;
-            max-width: 600px;
-        }
-
-        /* 最初の挨拶（吹き出し風） */
-        .greeting-box {
             background: white;
-            padding: 20px 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            margin-bottom: 40px;
-            font-size: 18px;
-            color: #333;
-            text-align: center;
-            border-left: 5px solid #1a73e8;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
         }
 
-        /* AIチャットを開始ボタン（これがトリガーになります） */
-        .start-btn {
-            background-color: #1a73e8;
-            color: white;
-            border: none;
-            padding: 18px 40px;
-            font-size: 20px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 6px 12px rgba(26, 115, 232, 0.3);
-            transition: all 0.2s ease;
+        /* 最初の挨拶エリア */
+        .chat-header-msg {
+            padding: 20px;
+            background: #e8f0fe;
+            border-bottom: 1px solid #d2e3fc;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            gap: 15px;
+            align-items: flex-start;
         }
 
-        /* ボタンのホバーアクション */
-        .start-btn:hover {
-            background-color: #1557b0;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 15px rgba(26, 115, 232, 0.4);
+        /* AIのアイコン */
+        .bot-icon {
+            font-size: 24px;
+            background: white;
+            padding: 12px;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        
-        /* reCAPTCHAのバッジを邪魔にならない位置へ */
-        .grecaptcha-badge { 
-            visibility: hidden; /* Googleの規約上、明示的にテキストで記載すれば非表示OKです */
+
+        /* 挨拶の吹き出し */
+        .chat-bubble {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 0 20px 20px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            color: #333;
+            line-height: 1.6;
         }
-        
-        .recaptcha-text {
-            margin-top: 20px;
-            font-size: 12px;
-            color: #888;
+
+        /* Googleウィジェットを配置するエリア */
+        .widget-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
         }
+
+        /* ウィジェット自体を枠いっぱいに広げる */
+        gen-search-widget {
+            width: 100%;
+            height: 100%;
+            display: block;
+            min-height: 500px;
+        }
+
+        /* reCAPTCHAと規約 */
+        .grecaptcha-badge { visibility: hidden; }
+        .legal-text { text-align: center; font-size: 11px; color: #aaa; padding: 10px; background: #f9f9f9; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>🔧 kubota WSM AI 整備マニュアル検索</h1>
+        <h1>🔧 kubota WSM AI 整備マニュアル.R</h1>
     </header>
 
-    <div class="main-container">
-        <div class="greeting-box">
-            <strong>AIガイド：</strong><br>
-            こんにちは！あなたをサポートするAIガイドです。<br>質問はなんですか？
+    <div class="chat-container">
+        <div class="chat-header-msg">
+            <div class="bot-icon">🤖</div>
+            <div class="chat-bubble">
+                <strong>AIガイド</strong><br>
+                こんにちは！あなたをサポートするAIガイドです。<br>
+                下の検索窓から質問を入力するか、マイクアイコンを押して音声でお話しください。<br>
+                （回答が出た後も、続けて質問できます）
+            </div>
         </div>
 
-        <button id="searchWidgetTrigger" class="start-btn">
-            💬 AIチャットを開始
-        </button>
+        <div class="widget-area">
+            <gen-search-widget
+                configId="ea87f861-8662-4a50-b0b4-598d12387543"
+                location="global"
+                displayMode="inline">
+            </gen-search-widget>
+        </div>
         
-        <p class="recaptcha-text">
-            This site is protected by reCAPTCHA and the Google 
-            <a href="https://policies.google.com/privacy">Privacy Policy</a> and 
-            <a href="https://policies.google.com/terms">Terms of Service</a> apply.
-        </p>
+        <div class="legal-text">
+            This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.
+        </div>
     </div>
-
-    <gen-search-widget
-        configId="ea87f861-8662-4a50-b0b4-598d12387543"
-        triggerId="searchWidgetTrigger">
-    </gen-search-widget>
 
 </body>
 </html>

@@ -3,163 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル.a</title>
+    <title>kubota WSM AI 整備マニュアル.V</title>
+    <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     <style>
-        /* --- デザイン：LINE風トーク画面 --- */
+        /* LINE風の配色とレイアウト */
         body { 
-            margin: 0; background-color: #7494c0; 
+            margin: 0; 
+            background-color: #7494c0; /* LINEのトーク画面風の背景色 */
             font-family: 'Hiragino Kaku Gothic ProN', sans-serif;
-            display: flex; flex-direction: column; height: 100vh;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
+
+        /* ヘッダー */
         header { 
-            background-color: #273246; color: white; padding: 12px; 
-            text-align: center; font-weight: bold; font-size: 16px;
+            background-color: #273246; 
+            color: white; 
+            padding: 10px; 
+            text-align: center; 
+            font-size: 0.9rem;
+            z-index: 100;
         }
-        #chat-history {
-            flex: 1; overflow-y: auto; padding: 15px;
-            display: flex; flex-direction: column; gap: 15px;
-        }
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 15px; font-size: 15px; line-height: 1.5; position: relative; }
-        
-        .ai-msg-container { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-        .ai-bubble-wrapper { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
-        .ai-icon { width: 35px; height: 35px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-        .ai-bubble { background-color: white; color: black; border-top-left-radius: 2px; }
 
-        /* 参照元リンクのスタイル */
-        .source-link {
-            margin-left: 45px;
-            background-color: rgba(255, 255, 255, 0.8);
-            color: #1a73e8;
-            padding: 5px 12px;
-            border-radius: 10px;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-flex;
+        /* トークエリア */
+        .chat-container {
+            flex: 1;
+            padding: 20px 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* AIのメッセージ（左側） */
+        .ai-msg-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .ai-icon {
+            width: 40px;
+            height: 40px;
+            background: #ffffff;
+            border-radius: 50%;
+            display: flex;
             align-items: center;
-            gap: 5px;
-            border: 1px solid #1a73e8;
-            transition: 0.2s;
+            justify-content: center;
+            font-size: 20px;
         }
-        .source-link:hover { background-color: #1a73e8; color: white; }
+        .ai-bubble {
+            background-color: #ffffff;
+            padding: 10px 15px;
+            border-radius: 15px;
+            position: relative;
+            max-width: 70%;
+            line-height: 1.5;
+            font-size: 15px;
+            color: #000;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        /* 吹き出しの三角（左） */
+        .ai-bubble::after {
+            content: "";
+            position: absolute;
+            top: 10px;
+            left: -10px;
+            border-style: solid;
+            border-width: 5px 10px 5px 0;
+            border-color: transparent #ffffff transparent transparent;
+        }
 
-        .user-bubble { background-color: #85e249; color: black; align-self: flex-end; border-top-right-radius: 2px; }
+        /* 下部入力エリア */
+        .input-bar {
+            background-color: #ffffff;
+            padding: 10px 15px 30px;
+            border-top: 1px solid #ddd;
+        }
 
-        .input-bar { background: white; padding: 10px; display: flex; gap: 8px; align-items: center; }
-        #user-input { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 10px 15px; font-size: 16px; outline: none; }
-        #send-btn { background: #1a73e8; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 18px; }
-        
-        .loading { color: white; font-size: 12px; margin-left: 45px; display: none; padding: 5px; }
+        /* 検索窓をLINEの入力欄風にする */
+        #searchWidgetTrigger {
+            width: 100%;
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: 1px solid #ddd;
+            background-color: #f5f5f5;
+            font-size: 16px;
+            box-sizing: border-box;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* Googleウィジェットの検索窓が浮かないように調整 */
+        gen-search-widget {
+            --gen-search-widget-container-max-height: 85vh;
+        }
     </style>
 </head>
 <body>
 
-    <header>kubota WSM AI ガイド.a</header>
+    <header>
+        kubota WSM AI 整備マニュアル.V
+    </header>
 
-    <div id="chat-history">
-        <div class="ai-msg-container">
-            <div class="ai-bubble-wrapper">
-                <div class="ai-icon">🚜</div>
-                <div class="msg ai-bubble">こんにちは！クボタ整備マニュアルAIです。知りたい手順をステップ形式でお教えします。何を確認しますか？</div>
+    <div class="chat-container">
+        <div class="ai-msg-row">
+            <div class="ai-icon">🚜</div>
+            <div class="bubble-container">
+                <div style="font-size: 11px; color: white; margin-bottom: 4px; margin-left: 5px;">AIガイド</div>
+                <div class="ai-bubble">
+                    こんにちは！クボタ整備マニュアルAIガイドです。<br>
+                    知りたい整備手順やトラブルについて、下の窓から入力してください。
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="loading" class="loading">AIが考え中...</div>
-
     <div class="input-bar">
-        <input type="text" id="user-input" placeholder="メッセージを入力">
-        <button id="send-btn" onclick="handleSend()">▲</button>
+        <input type="text" id="searchWidgetTrigger" placeholder="メッセージを入力" readonly>
     </div>
 
-    <script>
-        const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query"; 
+    <gen-search-widget
+        configId="ea87f861-8662-4a50-b0b4-598d12387543"
+        triggerId="searchWidgetTrigger">
+    </gen-search-widget>
 
-        const historyContainer = document.getElementById('chat-history');
-        const userInput = document.getElementById('user-input');
-        const loading = document.getElementById('loading');
-
-        function appendMessage(text, isUser, sourceUrl = null) {
-            if (isUser) {
-                const div = document.createElement('div');
-                div.className = "msg user-bubble";
-                div.innerText = text;
-                historyContainer.appendChild(div);
-            } else {
-                const container = document.createElement('div');
-                container.className = "ai-msg-container";
-                
-                const formattedText = text.replace(/\n/g, '<br>');
-                let htmlContent = `
-                    <div class="ai-bubble-wrapper">
-                        <div class="ai-icon">🚜</div>
-                        <div class="msg ai-bubble">${formattedText}</div>
-                    </div>
-                `;
-
-                // 参照元URLがある場合、ボタンを追加
-                if (sourceUrl) {
-                    htmlContent += `<a href="${sourceUrl}" target="_blank" class="source-link">📖 参照元PDFを開く</a>`;
-                }
-
-                container.innerHTML = htmlContent;
-                historyContainer.appendChild(container);
-            }
-            historyContainer.scrollTop = historyContainer.scrollHeight;
-        }
-
-        async function handleSend() {
-            const question = userInput.value.trim();
-            if (!question) return;
-
-            appendMessage(question, true);
-            userInput.value = "";
-            loading.style.display = "block";
-
-            try {
-                const promptWithInstruction = question + "（必ず1. 2. 3. と番号を振って、具体的な整備手順をステップ形式で詳しく回答してください）";
-
-                const response = await fetch(CLOUD_RUN_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: promptWithInstruction })
-                });
-
-                const data = await response.json();
-                console.log("Debug Data:", data);
-
-                let aiAnswer = "申し訳ありません。回答を見つけることができませんでした。";
-                let sourceUrl = null;
-
-                // 1. 回答文を取得
-                if (data.summary && data.summary.summaryText) {
-                    aiAnswer = data.summary.summaryText;
-                }
-
-                // 2. 参照元（PDFのURL）を取得
-                // Vertex AI Searchでは results[0].document.derivedStructData.link などに入っています
-                if (data.results && data.results.length > 0) {
-                    const doc = data.results[0].document;
-                    if (doc.derivedStructData && doc.derivedStructData.link) {
-                        sourceUrl = doc.derivedStructData.link;
-                    } else if (doc.derivedStructData && doc.derivedStructData.formattedUrl) {
-                        sourceUrl = doc.derivedStructData.formattedUrl;
-                    }
-                }
-
-                appendMessage(aiAnswer, false, sourceUrl);
-
-            } catch (error) {
-                console.error("Error:", error);
-                appendMessage("エラーが発生しました。接続を確認してください。", false);
-            } finally {
-                loading.style.display = "none";
-            }
-        }
-
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSend();
-        });
-    </script>
 </body>
 </html>

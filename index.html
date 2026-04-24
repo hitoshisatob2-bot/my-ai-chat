@@ -37,12 +37,12 @@
         #send-btn { background: #1a73e8; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 18px; }
         
         /* ローディングアニメーション */
-        .loading { color: white; font-size: 12px; margin-left: 45px; display: none; }
+        .loading { color: white; font-size: 12px; margin-left: 45px; display: none; padding: 5px; }
     </style>
 </head>
 <body>
 
-    <header>kubota WSM AI ガイド</header>
+    <header>kubota WSM AI ガイド.W</header>
 
     <div id="chat-history">
         <div class="ai-msg-container">
@@ -59,7 +59,7 @@
     </div>
 
     <script>
-        // --- 設定：ここを自分のCloud RunのURLに書き換えてください ---
+        // --- 設定：Cloud RunのURL ---
         const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query"; 
 
         const historyContainer = document.getElementById('chat-history');
@@ -76,7 +76,9 @@
             } else {
                 const container = document.createElement('div');
                 container.className = "ai-msg-container";
-                container.innerHTML = `<div class="ai-icon">🚜</div><div class="msg ai-bubble">${text.replace(/\n/g, '<br>')}</div>`;
+                // 改行を<br>に変換して表示
+                const formattedText = text.replace(/\n/g, '<br>');
+                container.innerHTML = `<div class="ai-icon">🚜</div><div class="msg ai-bubble">${formattedText}</div>`;
                 historyContainer.appendChild(container);
             }
             // 一番下までスクロール
@@ -95,8 +97,8 @@
 
             // 2. AIに回答をリクエストする
             try {
-                // Vertex AIに「ステップ形式で」と強制する魔法の言葉を追加
-                const promptWithInstruction = question + "（必ず1. 2. 3. と番号を振って、具体的な整備手順をステップ形式で詳しく回答してください）";
+                // 回答の質を高める指示を追加
+                const promptWithInstruction = question + "（1. 2. 3. と番号を振って、具体的な整備手順をステップ形式で詳しく回答してください）";
 
                 const response = await fetch(CLOUD_RUN_URL, {
                     method: 'POST',
@@ -104,14 +106,30 @@
                     body: JSON.stringify({ query: promptWithInstruction })
                 });
 
+                if (!response.ok) {
+                    throw new Error('サーバーエラーが発生しました');
+                }
+
                 const data = await response.json();
+                console.log("受信データ:", data); // デバッグ用
+
+                // 3. AIの回答を解析して画面に出す
+                // Vertex AI Searchの回答は data.summary.summaryText に格納されています
+                let aiAnswer = "";
                 
-                // 3. AIの回答を画面に出す
-                // ※data.answer の部分は、お使いのCloud Runの返り値形式に合わせて調整してください
-                const aiAnswer = data.answer || data.text || "申し訳ありません。回答を取得できませんでした。";
+                if (data.summary && data.summary.summaryText) {
+                    aiAnswer = data.summary.summaryText;
+                } else if (data.results && data.results.length > 0) {
+                    // summaryがない場合、検索結果の断片を表示する（予備の処理）
+                    aiAnswer = "関連する情報が見つかりました：\n" + data.results[0].document.derivedStructData.snippets[0].snippet;
+                } else {
+                    aiAnswer = "申し訳ありません。マニュアルから該当する回答を見つけることができませんでした。";
+                }
+
                 appendMessage(aiAnswer, false);
 
             } catch (error) {
+                console.error("Error:", error);
                 appendMessage("エラーが発生しました。接続を確認してください。", false);
             } finally {
                 loading.style.display = "none";

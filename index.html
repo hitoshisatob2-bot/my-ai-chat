@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル.R</title>
+    <title>kubota WSM AI 整備マニュアル.S</title>
     
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
@@ -68,21 +68,22 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             color: #333;
             line-height: 1.6;
+            font-size: 15px;
         }
 
         /* Googleウィジェットを配置するエリア */
         .widget-area {
             flex: 1;
-            padding: 20px;
-            overflow-y: auto;
+            width: 100%;
+            position: relative;
         }
 
-        /* ウィジェット自体を枠いっぱいに広げる */
+        /* ウィジェットがエリアいっぱいに広がるように設定 */
         gen-search-widget {
+            display: block;
             width: 100%;
             height: 100%;
-            display: block;
-            min-height: 500px;
+            min-height: 600px;
         }
 
         /* reCAPTCHAと規約 */
@@ -93,7 +94,7 @@
 <body>
 
     <header>
-        <h1>🔧 kubota WSM AI 整備マニュアル.R</h1>
+        <h1>🔧 kubota WSM AI 整備マニュアル.S</h1>
     </header>
 
     <div class="chat-container">
@@ -110,8 +111,7 @@
         <div class="widget-area">
             <gen-search-widget
                 configId="ea87f861-8662-4a50-b0b4-598d12387543"
-                location="global"
-                displayMode="inline">
+                alwaysOpened>
             </gen-search-widget>
         </div>
         

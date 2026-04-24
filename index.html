@@ -3,37 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備マニュアル検索.P</title>
+    <title>kubota WSM AI 整備マニュアル検索</title>
     
     <script src="https://cloud.google.com/ai/gen-app-builder/client?hl=ja"></script>
     
     <style>
-        body { font-family: sans-serif; padding: 50px; text-align: center; background-color: #f5f7f9; }
-        h1 { color: #1a73e8; }
+        /* 全体のデザイン設定 */
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            background-color: #f0f4f8; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            height: 100vh;
+        }
+
+        /* ヘッダー */
+        header { 
+            background-color: #1a73e8; 
+            color: white; 
+            width: 100%; 
+            padding: 20px 0; 
+            text-align: center; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
         
-        /* 検索窓（トリガー）の見た目だけ整えます */
-        #searchWidgetTrigger {
-            padding: 15px 20px;
-            font-size: 18px;
-            width: 80%;
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        /* メインコンテンツエリア */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            width: 100%;
             max-width: 600px;
-            border: 2px solid #1a73e8;
-            border-radius: 30px;
+        }
+
+        /* 最初の挨拶（吹き出し風） */
+        .greeting-box {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-bottom: 40px;
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+            border-left: 5px solid #1a73e8;
+        }
+
+        /* AIチャットを開始ボタン（これがトリガーになります） */
+        .start-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 6px 12px rgba(26, 115, 232, 0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ボタンのホバーアクション */
+        .start-btn:hover {
+            background-color: #1557b0;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(26, 115, 232, 0.4);
+        }
+        
+        /* reCAPTCHAのバッジを邪魔にならない位置へ */
+        .grecaptcha-badge { 
+            visibility: hidden; /* Googleの規約上、明示的にテキストで記載すれば非表示OKです */
+        }
+        
+        .recaptcha-text {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
         }
     </style>
 </head>
 <body>
-    <h1>🔧 kubota WSM AI 整備マニュアル検索.P</h1>
-    <p>下の検索窓を<strong>クリック</strong>して、AIを起動してください。</p>
+
+    <header>
+        <h1>🔧 kubota WSM AI 整備マニュアル検索</h1>
+    </header>
+
+    <div class="main-container">
+        <div class="greeting-box">
+            <strong>AIガイド：</strong><br>
+            こんにちは！あなたをサポートするAIガイドです。<br>質問はなんですか？
+        </div>
+
+        <button id="searchWidgetTrigger" class="start-btn">
+            💬 AIチャットを開始
+        </button>
+        
+        <p class="recaptcha-text">
+            This site is protected by reCAPTCHA and the Google 
+            <a href="https://policies.google.com/privacy">Privacy Policy</a> and 
+            <a href="https://policies.google.com/terms">Terms of Service</a> apply.
+        </p>
+    </div>
 
     <gen-search-widget
         configId="ea87f861-8662-4a50-b0b4-598d12387543"
         triggerId="searchWidgetTrigger">
     </gen-search-widget>
-
-    <input placeholder="ここで検索（クリックすると画面が開きます）" id="searchWidgetTrigger" readonly />
 
 </body>
 </html>

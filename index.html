@@ -3,76 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI ガイド.e</title>
+    <title>kubota WSM AI ガイド.f</title>
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; background-color: #7494c0; overflow: hidden; }
-        #main-content { flex: 1; display: flex; flex-direction: column; transition: 0.3s; }
-        header { background: #273246; color: white; padding: 15px; text-align: center; font-weight: bold; }
-        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .msg { max-width: 85%; padding: 12px 16px; border-radius: 15px; line-height: 1.6; font-size: 14px; }
-        .ai-container { display: flex; flex-direction: column; align-items: flex-start; }
-        .ai-bubble { background: white; color: #333; border-top-left-radius: 2px; }
-        .user-bubble { background: #85e249; align-self: flex-end; border-top-right-radius: 2px; }
-        .view-icon {
-            cursor: pointer; background: white; border: 1px solid #1a73e8; color: #1a73e8;
-            padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px;
-            display: flex; align-items: center; gap: 5px;
-        }
-        #side-panel { width: 0; transition: 0.3s; background: #333; position: relative; }
-        #side-panel.open { width: 50%; }
-        iframe { width: 100%; height: 100%; border: none; background: white; }
-        .close-btn { position: absolute; left: -40px; top: 10px; width: 40px; height: 40px; background: #273246; color: white; border: none; cursor: pointer; }
-        .input-bar { background: white; padding: 15px; display: flex; gap: 10px; }
-        #user-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 25px; outline: none; }
-        #send-btn { background: #1a73e8; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
-        .loading { color: white; font-size: 12px; text-align: center; display: none; margin-bottom: 10px; }
+        body { margin: 0; display: flex; height: 100vh; font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; overflow: hidden; }
+        
+        /* 左側：チャットエリア */
+        #chat-container { width: 50%; display: flex; flex-direction: column; border-right: 2px solid #ddd; background: white; }
+        header { background: #273246; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2em; }
+        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        
+        /* メッセージデザイン */
+        .msg { max-width: 90%; padding: 15px; border-radius: 8px; line-height: 1.7; font-size: 14px; color: #333; }
+        .ai-bubble { background: #fff; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .user-bubble { background: #85e249; align-self: flex-end; font-weight: bold; }
+        
+        /* 右側：PDFビューワー */
+        #pdf-container { width: 50%; background: #525659; display: flex; flex-direction: column; }
+        iframe { width: 100%; height: 100%; border: none; }
+
+        /* 入力エリア */
+        .input-bar { padding: 20px; background: white; border-top: 1px solid #ddd; display: flex; gap: 10px; }
+        #user-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+        #send-btn { background: #1a73e8; color: white; border: none; padding: 0 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        /* 引用（ページ表示）ボタン */
+        .ref-link { color: #1a73e8; text-decoration: underline; cursor: pointer; font-size: 0.9em; margin-top: 10px; display: block; }
+        .loading { display: none; text-align: center; color: #666; font-size: 12px; margin-bottom: 10px; }
+        
+        b { color: #d32f2f; } /* 強調文字 */
     </style>
 </head>
 <body>
 
-<div id="main-content">
-    <header>kubota WSM AI ガイド.e</header>
-    <div id="chat-history"></div>
-    <div id="loading" class="loading">マニュアルを解析中...</div>
+<div id="chat-container">
+    <header>kubota WSM AI ガイド.f</header>
+    <div id="chat-history">
+        <div class="msg ai-bubble">こんにちは！機種ごとの整備手順をお教えします。何を確認しますか？</div>
+    </div>
+    <div id="loading" class="loading">マニュアルから最適な手順を抽出しています...</div>
     <div class="input-bar">
-        <input type="text" id="user-input" placeholder="メッセージを入力">
-        <button id="send-btn" onclick="handleSend()">▲</button>
+        <input type="text" id="user-input" placeholder="例：SL280のボンネットの開け方を教えて">
+        <button id="send-btn" onclick="handleSend()">送信</button>
     </div>
 </div>
 
-<div id="side-panel">
-    <button class="close-btn" onclick="togglePanel(false)">✕</button>
-    <iframe id="pdf-viewer"></iframe>
+<div id="pdf-container">
+    <iframe id="pdf-viewer" src=""></iframe>
 </div>
 
 <script>
     const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query";
 
-    function appendMessage(text, isUser, pdfUrl = null) {
+    function appendMessage(text, isUser, pdfData = null) {
         const history = document.getElementById('chat-history');
-        const container = document.createElement('div');
-        container.className = isUser ? "msg user-bubble" : "ai-container";
+        const bubble = document.createElement('div');
+        bubble.className = isUser ? "msg user-bubble" : "msg ai-bubble";
+        
+        // テキストの整形（改行と太字）
+        let formattedText = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        bubble.innerHTML = formattedText;
 
-        if (isUser) {
-            container.innerText = text;
-        } else {
-            const bubble = document.createElement('div');
-            bubble.className = "msg ai-bubble";
-            bubble.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-            container.appendChild(bubble);
-
-            if (pdfUrl) {
-                const btn = document.createElement('button');
-                btn.className = "view-icon";
-                btn.innerHTML = "👁️ 該当ページを表示";
-                btn.onclick = () => {
-                    document.getElementById('pdf-viewer').src = pdfUrl;
-                    togglePanel(true);
-                };
-                container.appendChild(btn);
-            }
+        if (pdfData) {
+            const link = document.createElement('a');
+            link.className = "ref-link";
+            link.innerHTML = `● 根拠となるマニュアル（${pdfData.page}ページ）を確認する`;
+            link.onclick = () => {
+                document.getElementById('pdf-viewer').src = pdfData.url;
+            };
+            bubble.appendChild(link);
+            // 自動で右側にも表示させる
+            document.getElementById('pdf-viewer').src = pdfData.url;
         }
-        history.appendChild(container);
+
+        history.appendChild(bubble);
         history.scrollTop = history.scrollHeight;
     }
 
@@ -93,42 +96,38 @@
             });
             const data = await res.json();
 
-            let answer = data.summary?.summaryText || "回答が見つかりませんでした。";
-            let finalPdfUrl = null;
+            let answer = data.summary?.summaryText || "該当する手順が見つかりませんでした。";
+            let pdfInfo = null;
 
             if (data.results && data.results.length > 0) {
-                const result = data.results[0];
-                let link = result.document.derivedStructData.link || result.document.derivedStructData.formattedUrl;
+                const doc = data.results[0].document.derivedStructData;
+                let rawLink = doc.link || doc.formattedUrl;
                 
-                // gs:// を HTTPS に変換
-                if (link && link.startsWith('gs://')) {
-                    link = link.replace('gs://', 'https://storage.googleapis.com/');
+                // Cloud Storage URLの置換
+                if (rawLink.startsWith('gs://')) {
+                    rawLink = rawLink.replace('gs://', 'https://storage.googleapis.com/');
                 }
 
-                // ページ番号の取得を試みる
-                let pageNumber = 1;
-                const structData = result.document.derivedStructData;
-                if (structData.extractive_segments && structData.extractive_segments[0].pageNumber) {
-                    pageNumber = structData.extractive_segments[0].pageNumber;
-                } else if (structData.pages && structData.pages[0]) {
-                    pageNumber = structData.pages[0];
+                // ページ番号の取得
+                let pageNum = 1;
+                if (data.results[0].document.derivedStructData.extractive_segments) {
+                    pageNum = data.results[0].document.derivedStructData.extractive_segments[0].pageNumber || 1;
                 }
-
-                // URLにページ指定 (#page=X) を追加
-                finalPdfUrl = link + "#page=" + pageNumber;
+                
+                pdfInfo = {
+                    url: `${rawLink}#page=${pageNum}`,
+                    page: pageNum
+                };
             }
 
-            appendMessage(answer, false, finalPdfUrl);
+            appendMessage(answer, false, pdfInfo);
         } catch (e) {
-            appendMessage("通信エラーが発生しました。", false);
+            appendMessage("エラーが発生しました。接続を確認してください。", false);
         } finally {
             document.getElementById('loading').style.display = "none";
         }
     }
 
-    function togglePanel(open) {
-        document.getElementById('side-panel').className = open ? "open" : "";
-    }
     document.getElementById('user-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
 </script>
 </body>

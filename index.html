@@ -3,162 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI 整備ガイド.b</title>
+    <title>kubota WSM AI ガイド.c</title>
     <style>
-        body { 
-            margin: 0; background-color: #7494c0; 
-            font-family: 'Hiragino Kaku Gothic ProN', sans-serif;
-            display: flex; height: 100vh; overflow: hidden;
-        }
-        /* メインチャットエリア */
-        .chat-container {
-            flex: 1; display: flex; flex-direction: column; transition: 0.3s;
-        }
-        header { 
-            background-color: #273246; color: white; padding: 12px; 
-            text-align: center; font-weight: bold;
-        }
-        #chat-history {
-            flex: 1; overflow-y: auto; padding: 15px;
-            display: flex; flex-direction: column; gap: 15px;
-        }
-        /* 吹き出し */
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 15px; font-size: 15px; line-height: 1.5; }
-        .ai-msg-container { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-        .ai-bubble-wrapper { display: flex; align-items: flex-start; gap: 8px; }
-        .ai-icon { width: 35px; height: 35px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .ai-bubble { background-color: white; color: black; border-top-left-radius: 2px; }
-        .user-bubble { background-color: #85e249; color: black; align-self: flex-end; border-top-right-radius: 2px; }
+        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; background-color: #f0f2f5; overflow: hidden; }
+        
+        /* チャットエリア */
+        #main-content { flex: 1; display: flex; flex-direction: column; transition: 0.3s; border-right: 1px solid #ddd; }
+        header { background: #273246; color: white; padding: 15px; text-align: center; font-weight: bold; }
+        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background-color: #7494c0; }
+
+        /* 吹き出しデザイン（以前の形式を意識） */
+        .msg { max-width: 85%; padding: 12px 16px; border-radius: 15px; line-height: 1.6; font-size: 14px; position: relative; }
+        .ai-container { display: flex; flex-direction: column; align-items: flex-start; }
+        .ai-bubble { background: white; color: #333; border-top-left-radius: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .user-bubble { background: #85e249; align-self: flex-end; border-top-right-radius: 2px; }
 
         /* 目玉アイコンボタン */
-        .view-btn {
-            margin-left: 45px; background: none; border: 1px solid #fff; color: white;
-            cursor: pointer; border-radius: 50%; width: 30px; height: 30px;
-            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        .view-icon {
+            cursor: pointer; background: none; border: none; font-size: 18px;
+            margin-top: 5px; opacity: 0.7; transition: 0.2s;
         }
+        .view-icon:hover { opacity: 1; transform: scale(1.1); }
 
-        /* サイドパネル（PDF表示） */
-        #side-panel {
-            width: 0; background: #333; transition: 0.3s;
-            display: flex; flex-direction: column; position: relative;
-        }
-        #side-panel.open { width: 50%; } /* 画面の半分をPDFに */
+        /* スライドパネル（PDF表示用） */
+        #side-panel { width: 0; transition: 0.3s; background: #555; position: relative; display: flex; flex-direction: column; }
+        #side-panel.open { width: 45%; } /* 画面の45%を占有 */
         iframe { width: 100%; height: 100%; border: none; background: white; }
-        .close-panel {
-            position: absolute; left: -30px; top: 10px; background: #333;
-            color: white; border: none; padding: 5px 10px; cursor: pointer;
-        }
+        .close-btn { position: absolute; left: -40px; top: 10px; width: 40px; height: 40px; background: #273246; color: white; border: none; cursor: pointer; border-radius: 5px 0 0 5px; }
 
-        /* 入力バー */
-        .input-bar { background: white; padding: 10px; display: flex; gap: 8px; }
-        #user-input { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 10px 15px; }
-        #send-btn { background: #1a73e8; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; }
-        .loading { color: white; font-size: 12px; margin-left: 45px; display: none; }
+        /* 入力エリア */
+        .input-bar { background: white; padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
+        #user-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 25px; outline: none; }
+        #send-btn { background: #1a73e8; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="chat-container">
-        <header>kubota WSM AI ガイド.b</header>
-        <div id="chat-history">
-            <div class="ai-msg-container">
-                <div class="ai-bubble-wrapper">
-                    <div class="ai-icon">🚜</div>
-                    <div class="msg ai-bubble">こんにちは！機種ごとの整備手順をお教えします。</div>
-                </div>
-            </div>
-        </div>
-        <div id="loading" class="loading">AI回答中...</div>
-        <div class="input-bar">
-            <input type="text" id="user-input" placeholder="メッセージを入力">
-            <button id="send-btn" onclick="handleSend()">▲</button>
-        </div>
+<div id="main-content">
+    <header>kubota WSM AI ガイド.c</header>
+    <div id="chat-history"></div>
+    <div class="input-bar">
+        <input type="text" id="user-input" placeholder="メッセージを入力">
+        <button id="send-btn" onclick="handleSend()">▲</button>
     </div>
+</div>
 
-    <div id="side-panel">
-        <button class="close-panel" onclick="closePDF()">×</button>
-        <iframe id="pdf-viewer"></iframe>
-    </div>
+<div id="side-panel">
+    <button class="close-btn" onclick="togglePanel(false)">✕</button>
+    <iframe id="pdf-viewer"></iframe>
+</div>
 
-    <script>
-        const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query"; 
+<script>
+    const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query";
 
-        function appendMessage(text, isUser, pdfUrl = null) {
-            const history = document.getElementById('chat-history');
-            if (isUser) {
-                const div = document.createElement('div');
-                div.className = "msg user-bubble";
-                div.innerText = text;
-                history.appendChild(div);
-            } else {
-                const container = document.createElement('div');
-                container.className = "ai-msg-container";
-                const formattedText = text.replace(/\n/g, '<br>');
-                let html = `
-                    <div class="ai-bubble-wrapper">
-                        <div class="ai-icon">🚜</div>
-                        <div class="msg ai-bubble">${formattedText}</div>
-                    </div>`;
-                if (pdfUrl) {
-                    html += `<button class="view-btn" onclick="openPDF('${pdfUrl}')">👁️</button>`;
-                }
-                container.innerHTML = html;
-                history.appendChild(container);
-            }
-            history.scrollTop = history.scrollHeight;
-        }
+    function appendMessage(text, isUser, pdfUrl = null) {
+        const history = document.getElementById('chat-history');
+        const container = document.createElement('div');
+        container.className = isUser ? "msg user-bubble" : "ai-container";
 
-        async function handleSend() {
-            const input = document.getElementById('user-input');
-            const question = input.value.trim();
-            if (!question) return;
+        if (isUser) {
+            container.innerText = text;
+        } else {
+            const bubble = document.createElement('div');
+            bubble.className = "msg ai-bubble";
+            // HTMLタグ（太字や改行）を反映させる
+            bubble.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            container.appendChild(bubble);
 
-            appendMessage(question, true);
-            input.value = "";
-            document.getElementById('loading').style.display = "block";
-
-            try {
-                // 機種ごとの回答を促す指示
-                const instruction = question + "（複数の機種が含まれる場合は必ず機種名ごとに分けて手順を説明してください。手順は1.2.3.とステップ形式で詳しく書いてください）";
-
-                const res = await fetch(CLOUD_RUN_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: instruction })
-                });
-                const data = await res.json();
-
-                let answer = data.summary?.summaryText || "回答が見つかりませんでした。";
-                let pdfUrl = null;
-
-                if (data.results?.length > 0) {
-                    let link = data.results[0].document.derivedStructData.link;
-                    // gs:// パスを https://storage.googleapis.com/ に変換
-                    if (link && link.startsWith('gs://')) {
-                        pdfUrl = link.replace('gs://', 'https://storage.googleapis.com/');
-                    } else {
-                        pdfUrl = link;
-                    }
-                }
-
-                appendMessage(answer, false, pdfUrl);
-            } catch (e) {
-                appendMessage("通信エラーが発生しました。", false);
-            } finally {
-                document.getElementById('loading').style.display = "none";
+            if (pdfUrl) {
+                const btn = document.createElement('button');
+                btn.className = "view-icon";
+                btn.innerHTML = "👁️ 根拠を確認";
+                btn.onclick = () => {
+                    document.getElementById('pdf-viewer').src = pdfUrl;
+                    togglePanel(true);
+                };
+                container.appendChild(btn);
             }
         }
+        history.appendChild(container);
+        history.scrollTop = history.scrollHeight;
+    }
 
-        function openPDF(url) {
-            document.getElementById('pdf-viewer').src = url;
-            document.getElementById('side-panel').classList.add('open');
+    async function handleSend() {
+        const input = document.getElementById('user-input');
+        const query = input.value.trim();
+        if (!query) return;
+
+        appendMessage(query, true);
+        input.value = "";
+
+        // プロンプトエンジニアリング：以前の回答形式を強制
+        const enrichedPrompt = `クボタの専門整備士として、以下の質問に答えてください。
+複数の機種に関する情報がある場合は、必ず機種名ごとにセクションを分けて（例：**SL280の場合**）、ステップ形式で手順を説明してください。
+質問：${query}`;
+
+        try {
+            const res = await fetch(CLOUD_RUN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: enrichedPrompt })
+            });
+            const data = await res.json();
+
+            let answer = data.summary?.summaryText || "回答が見つかりませんでした。";
+            let pdfUrl = null;
+
+            if (data.results?.length > 0) {
+                let link = data.results[0].document.derivedStructData.link || data.results[0].document.derivedStructData.formattedUrl;
+                if (link && link.startsWith('gs://')) {
+                    pdfUrl = link.replace('gs://', 'https://storage.googleapis.com/');
+                } else {
+                    pdfUrl = link;
+                }
+            }
+            appendMessage(answer, false, pdfUrl);
+        } catch (e) {
+            appendMessage("エラーが発生しました。", false);
         }
+    }
 
-        function closePDF() {
-            document.getElementById('side-panel').classList.remove('open');
-        }
+    function togglePanel(open) {
+        document.getElementById('side-panel').className = open ? "open" : "";
+    }
 
-        document.getElementById('user-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
-    </script>
+    document.getElementById('user-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
+</script>
 </body>
 </html>

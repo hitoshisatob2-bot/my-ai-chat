@@ -3,69 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI ガイド.a</title>
+    <title>kubota WSM AI ガイド.b</title>
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: "Hiragino Kaku Gothic ProN", Arial, sans-serif; overflow: hidden; }
+        body { margin: 0; display: flex; height: 100vh; font-family: "Hiragino Kaku Gothic ProN", Arial, sans-serif; overflow: hidden; background-color: #f0f2f5; }
         
         /* --- 左側：LINE風チャットエリア --- */
-        #chat-container { width: 50%; display: flex; flex-direction: column; background-color: #7494c0; border-right: 2px solid #ccc; }
+        #chat-container { width: 50%; display: flex; flex-direction: column; background-color: #7494c0; border-right: 2px solid #ccc; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 10; }
         header { background: #273246; color: white; padding: 15px; text-align: center; font-weight: bold; }
-        #chat-history { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         
-        /* 吹き出しの共通スタイル */
         .msg { max-width: 85%; padding: 12px 16px; border-radius: 15px; line-height: 1.6; font-size: 14px; position: relative; }
+        .ai-container { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+        .ai-bubble { background: white; color: #333; border-top-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .user-bubble { background: #85e249; color: #111; align-self: flex-end; border-top-right-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         
-        /* AIのメッセージ（白） */
-        .ai-container { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-        .ai-bubble { background: white; color: #333; border-top-left-radius: 2px; }
-        
-        /* ユーザーのメッセージ（緑） */
-        .user-bubble { background: #85e249; color: black; align-self: flex-end; border-top-right-radius: 2px; }
-        
-        /* PDFを開くボタン */
-        .view-btn { 
-            background: rgba(255, 255, 255, 0.9); border: 1px solid #1a73e8; color: #1a73e8; 
-            padding: 6px 15px; border-radius: 20px; font-size: 12px; cursor: pointer; 
-            display: inline-flex; align-items: center; gap: 5px; transition: 0.2s;
+        /* アイコンボタン（PDF表示用） */
+        .pdf-icon-btn { 
+            background: #ffffff; border: 1px solid #1a73e8; color: #1a73e8; 
+            padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; 
+            display: inline-flex; align-items: center; gap: 6px; transition: 0.2s;
         }
-        .view-btn:hover { background: #1a73e8; color: white; }
+        .pdf-icon-btn:hover { background: #1a73e8; color: white; }
 
         /* 入力エリア */
-        .input-bar { background: white; padding: 10px; display: flex; gap: 10px; align-items: center; }
+        .input-bar { background: white; padding: 15px; display: flex; gap: 10px; align-items: center; }
         #user-input { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 14px; }
-        #send-btn { background: #1a73e8; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; font-size: 16px; }
-        .loading { color: white; font-size: 12px; margin-left: 10px; display: none; padding-bottom: 10px;}
+        #send-btn { background: #1a73e8; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; justify-content: center; align-items: center; }
+        .loading { color: white; font-size: 12px; margin-left: 10px; display: none; padding-bottom: 10px; text-align: center; }
 
         /* --- 右側：PDF表示エリア --- */
-        #pdf-container { width: 50%; background: #333; display: flex; flex-direction: column; }
-        iframe { width: 100%; height: 100%; border: none; background: white; }
-
-        /* 装飾 */
-        b { color: #d32f2f; } /* 機種名などを赤く強調 */
+        #pdf-container { width: 50%; background: #525659; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        iframe { width: 100%; height: 100%; border: none; background: white; display: none; }
+        #pdf-placeholder { text-align: center; opacity: 0.7; }
     </style>
 </head>
 <body>
 
 <div id="chat-container">
-    <header>kubota WSM AI ガイド.a</header>
+    <header>kubota WSM AI ガイド.b</header>
     <div id="chat-history">
         <div class="ai-container">
-            <div class="msg ai-bubble">こんにちは！クボタの専門整備士AIです。<br>調べたい手順や機種名を入力してください。</div>
+            <div class="msg ai-bubble">こんにちは！調べたい手順や機種名を入力してください。<br>公式ウィジェットと同等の精度でマニュアルから回答します。</div>
         </div>
     </div>
     <div id="loading" class="loading">マニュアルを解析中...</div>
     <div class="input-bar">
-        <input type="text" id="user-input" placeholder="例：SL280のボンネットの開け方は？">
+        <input type="text" id="user-input" placeholder="例：ボンネットの開け方は？">
         <button id="send-btn" onclick="handleSend()">▲</button>
     </div>
 </div>
 
 <div id="pdf-container">
+    <div id="pdf-placeholder">
+        <p>ここにPDFマニュアルが表示されます</p>
+    </div>
     <iframe id="pdf-viewer" src=""></iframe>
 </div>
 
 <script>
-    // --- ご自身のCloud Run URL ---
     const CLOUD_RUN_URL = "https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query";
 
     function appendMessage(text, isUser, pdfInfo = null) {
@@ -79,23 +74,27 @@
             const bubble = document.createElement('div');
             bubble.className = "msg ai-bubble";
             
-            // Markdownの太字(**テキスト**)をHTMLの<b>タグに変換し、改行を反映
-            let formattedText = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            // テキストの整形（改行、太字、引用記号 [1] を見やすく）
+            let formattedText = text
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                .replace(/\[(\d+)\]/g, '<span style="color:#1a73e8; font-weight:bold;">[$1]</span>');
+            
             bubble.innerHTML = formattedText;
             container.appendChild(bubble);
 
-            // PDF情報があればボタンを追加し、右側に自動表示
+            // PDFを開くためのアイコンボタンを生成
             if (pdfInfo) {
                 const btn = document.createElement('button');
-                btn.className = "view-btn";
-                btn.innerHTML = `📖 根拠ページ（P.${pdfInfo.page}）を確認`;
+                btn.className = "pdf-icon-btn";
+                btn.innerHTML = `📄 根拠ページ（P.${pdfInfo.page}）を開く`;
                 btn.onclick = () => {
-                    document.getElementById('pdf-viewer').src = pdfInfo.url;
+                    document.getElementById('pdf-placeholder').style.display = 'none';
+                    const iframe = document.getElementById('pdf-viewer');
+                    iframe.style.display = 'block';
+                    iframe.src = pdfInfo.url;
                 };
                 container.appendChild(btn);
-                
-                // 検索完了時に自動で右側にPDFを開く
-                document.getElementById('pdf-viewer').src = pdfInfo.url;
             }
         }
         history.appendChild(container);
@@ -119,20 +118,17 @@
             });
             const data = await res.json();
 
-            let answer = data.summary?.summaryText || "申し訳ありません。マニュアル内に該当する手順が見つかりませんでした。";
+            let answer = data.summary?.summaryText || "該当する情報が見つかりませんでした。";
             let pdfInfo = null;
 
-            // 検索結果からPDFのURLと「ページ番号」を抽出
             if (data.results && data.results.length > 0) {
                 const doc = data.results[0].document.derivedStructData;
                 let rawLink = doc.link || doc.formattedUrl;
                 
-                // gs:// パスをブラウザで見られる https:// に変換
                 if (rawLink && rawLink.startsWith('gs://')) {
                     rawLink = rawLink.replace('gs://', 'https://storage.googleapis.com/');
                 }
 
-                // AIが引用元とした「ページ番号」を抽出
                 let pageNum = 1;
                 if (doc.extractive_segments && doc.extractive_segments.length > 0) {
                     pageNum = doc.extractive_segments[0].pageNumber || 1;
@@ -140,7 +136,7 @@
                 
                 if (rawLink) {
                     pdfInfo = {
-                        url: `${rawLink}#page=${pageNum}`, // PDFの指定ページを開く呪文
+                        url: `${rawLink}#page=${pageNum}`,
                         page: pageNum
                     };
                 }
@@ -149,14 +145,12 @@
             appendMessage(answer, false, pdfInfo);
 
         } catch (e) {
-            appendMessage("エラーが発生しました。接続を確認してください。", false);
-            console.error(e);
+            appendMessage("通信エラーが発生しました。", false);
         } finally {
             document.getElementById('loading').style.display = "none";
         }
     }
 
-    // Enterキー送信対応
     document.getElementById('user-input').addEventListener('keypress', (e) => { 
         if (e.key === 'Enter') handleSend(); 
     });

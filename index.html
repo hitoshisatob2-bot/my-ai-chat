@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>kubota WSM AI ガイド.a</title>
+    <title>kubota WSM AI ガイド.b</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; background: #7188ad; }
         #chat-section { flex: 1; display: flex; flex-direction: column; border-right: 2px solid #2c3e50; }
@@ -14,6 +14,7 @@
         .cite-link { color: #007bff; cursor: pointer; font-weight: bold; text-decoration: underline; margin: 0 2px; }
         #input-area { padding: 15px; background: white; display: flex; gap: 10px; }
         input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; border-radius: 5px; border: none; background: #007bff; color: white; cursor: pointer; }
         iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
@@ -22,11 +23,11 @@
 <div id="chat-section">
     <div id="messages"><div class="msg ai">こんにちは！機種ごとの整備手順をお教えします。</div></div>
     <div id="input-area">
-        <input type="text" id="userInput" placeholder="例：SL280のボンネットの開け方は？">
+        <input type="text" id="userInput" placeholder="例：SL280のボンネットの開け方は？" onkeypress="if(event.key==='Enter') send()">
         <button onclick="send()">送信</button>
     </div>
 </div>
-<div id="pdf-section"><iframe id="viewer"></iframe></div>
+<div id="pdf-section"><iframe id="viewer" src="about:blank"></iframe></div>
 
 <script>
     async function send() {
@@ -38,7 +39,7 @@
         input.value = '';
 
         try {
-            // あなたのCloud Run URLに書き換えてください
+            // ご自身のCloud Run URL
             const res = await fetch('https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -46,13 +47,14 @@
             });
             const data = await res.json();
             
-            if (data.answer) {
+            // データが正しく取得できたか判定
+            if (data.answer && data.answer.trim() !== '') {
                 renderAiResponse(data);
             } else {
                 append('ai', '回答が見つかりませんでした。');
             }
         } catch (e) {
-            append('ai', 'エラーが発生しました。詳細はコンソールを確認してください。');
+            append('ai', 'エラーが発生しました。通信状況を確認してください。');
             console.error(e);
         }
     }
@@ -67,18 +69,33 @@
 
     function renderAiResponse(data) {
         let html = data.answer;
-        // [1] などの形式をリンクに変換
+        
+        // [1] などの形式をPDFリンクに変換
         html = html.replace(/\[(\d+)\]/g, (match, num) => {
-            const ref = data.results[parseInt(num)-1];
-            if (ref) {
-                const gcsUri = ref.chunkInfo.documentMetadata.structData.link || ref.chunkInfo.documentMetadata.structData.formattedUrl;
-                const httpUrl = gcsUri.replace('gs://', 'https://storage.googleapis.com/');
-                const page = ref.chunkInfo.pageSpan?.startPage || 1;
-                const finalUrl = `${httpUrl}#page=${page}`;
-                return `<span class="cite-link" onclick="view('${finalUrl}')">[${num}]</span>`;
+            const index = parseInt(num) - 1;
+            const ref = data.results[index];
+            
+            if (ref && ref.document && ref.document.derivedStructData) {
+                const struct = ref.document.derivedStructData;
+                
+                // GCSのURLを取得してHTTPSに変換
+                const gcsUri = struct.link || struct.formattedUrl || '';
+                if (gcsUri) {
+                    const httpUrl = gcsUri.replace('gs://', 'https://storage.googleapis.com/');
+                    
+                    // ページ番号の抽出
+                    let page = 1;
+                    if (struct.extractive_segments && struct.extractive_segments[0]) {
+                        page = struct.extractive_segments[0].pageNumber || 1;
+                    }
+                    
+                    const finalUrl = `${httpUrl}#page=${page}`;
+                    return `<span class="cite-link" onclick="view('${finalUrl}')">[${num}]</span>`;
+                }
             }
             return match;
         });
+        
         append('ai', html);
     }
 

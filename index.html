@@ -65,7 +65,7 @@
 <script>
 async function askAI() {
     const query = document.getElementById('queryInput').value;
-    const response = await fetch('YOUR_CLOUD_RUN_URL/query', { // あなたのURLに差し替え
+    const response = await fetch('https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query', { // あなたのURLに差し替え
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })

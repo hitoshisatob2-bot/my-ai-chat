@@ -3,25 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI Assistant.c</title>
+    <title>kubota WSM AI Assistant.d</title>
     <style>
         body {
             margin: 0;
             display: flex;
             height: 100vh;
             width: 100vw;
-            font-family: sans-serif;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
             overflow: hidden;
-            background-color: #f0f2f5;
+            background-color: #f4f7f9;
         }
 
-        /* 左側：チャット */
+        /* 左側：チャットエリア */
         #chat-container {
-            width: 400px;
+            width: 450px;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid #ccc;
+            border-right: 1px solid #d1d9e0;
             background: white;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
         }
 
         #messages {
@@ -43,45 +44,74 @@
             width: 100%;
             height: 100%;
             border: none;
-            display: none;
+            display: none; /* 初期状態は非表示 */
         }
 
         #pdf-placeholder {
             margin: auto;
-            color: white;
+            color: #ffffff;
             text-align: center;
+            font-size: 1.1rem;
+            line-height: 1.6;
         }
 
-        /* パーツ装飾 */
+        /* メッセージバブル */
         .message-bubble {
-            background: #e9ecef;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 15px;
+            background: #f0f2f5;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
             font-size: 14px;
-            line-height: 1.5;
+            line-height: 1.6;
+            color: #333;
         }
 
+        /* 引用元ボタン（青色） */
         .source-tag {
             display: inline-block;
             background: #007bff;
             color: white;
-            padding: 4px 10px;
-            border-radius: 15px;
+            padding: 6px 12px;
+            border-radius: 20px;
             cursor: pointer;
-            margin: 3px;
+            margin: 4px;
             font-size: 12px;
+            font-weight: bold;
+            transition: background 0.2s;
         }
 
+        .source-tag:hover {
+            background: #0056b3;
+        }
+
+        /* 入力エリア */
         .input-area {
-            padding: 15px;
-            border-top: 1px solid #ddd;
+            padding: 20px;
+            border-top: 1px solid #eee;
             display: flex;
             gap: 10px;
+            background: #fff;
         }
 
-        #queryInput { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #queryInput { 
+            flex: 1; 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            outline: none;
+        }
+
+        #sendBtn { 
+            padding: 10px 24px; 
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        #sendBtn:disabled { background: #ccc; }
     </style>
 </head>
 <body>
@@ -91,18 +121,20 @@
         <div class="message-bubble">こんにちは。クボタ整備マニュアルについて質問してください。</div>
     </div>
     <div class="input-area">
-        <input type="text" id="queryInput" placeholder="質問を入力..." onkeypress="if(event.key==='Enter') askAI()">
+        <input type="text" id="queryInput" placeholder="例：エンジンの分解手順は？" onkeypress="if(event.key==='Enter') askAI()">
         <button id="sendBtn" onclick="askAI()">送信</button>
     </div>
 </div>
 
 <div id="pdf-container">
-    <div id="pdf-placeholder">引用元のアイコンをクリックすると<br>ここにPDFが表示されます</div>
+    <div id="pdf-placeholder">
+        引用元のボタンをクリックすると<br>ここにPDFマニュアルが表示されます
+    </div>
     <iframe id="pdf-viewer"></iframe>
 </div>
 
 <script>
-    // Cloud RunのURLを直接指定
+    // Cloud RunのAPIエンドポイント
     const API_URL = 'https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query';
 
     async function askAI() {
@@ -111,13 +143,14 @@
         const query = input.value.trim();
         if (!query) return;
 
+        // 入力をロック
         input.value = '';
         input.disabled = true;
         btn.disabled = true;
 
         const msgDiv = document.getElementById('messages');
         const loadingId = 'loading-' + Date.now();
-        msgDiv.innerHTML += `<div class="message-bubble" id="${loadingId}">考え中...</div>`;
+        msgDiv.innerHTML += `<div class="message-bubble" id="${loadingId}">検索中...</div>`;
         msgDiv.scrollTop = msgDiv.scrollHeight;
 
         try {
@@ -127,36 +160,44 @@
                 body: JSON.stringify({ query })
             });
 
-            const data = await response.json();
-            let html = `<div>${data.answer.replace(/\n/g, '<br>')}</div>`;
+            if (!response.ok) throw new Error('Network response was not ok');
 
+            const data = await response.json();
+            let answerHtml = `<div>${data.answer.replace(/\n/g, '<br>')}</div>`;
+
+            // 検索結果（引用元）がある場合のみボタンを表示
             if (data.results && data.results.length > 0) {
-                html += `<div style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px;"><strong>引用元:</strong><br>`;
+                answerHtml += `<div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"><strong>引用元:</strong><br>`;
                 data.results.forEach((res, index) => {
-                    // ログに基づき、深い階層にあるリンクを安全に取得
-                    let rawLink = "";
+                    // ログ(image_8a09f7.jpg)の構造に合わせてリンクを抽出
+                    let gcsPath = "";
                     if (res.document && res.document.derivedStructData && res.document.derivedStructData.fields && res.document.derivedStructData.fields.link) {
-                        rawLink = res.document.derivedStructData.fields.link.stringValue;
+                        gcsPath = res.document.derivedStructData.fields.link.stringValue;
                     } else {
-                        rawLink = res.link || "";
+                        gcsPath = res.link || "";
                     }
 
-                    if (rawLink) {
-                        // 公開アクセス用URLに変換
-                        let publicUrl = rawLink.replace('gs://', 'https://storage.googleapis.com/');
-                        const finalUrl = `${encodeURI(publicUrl)}#page=${res.pageNumber || 1}`;
+                    if (gcsPath) {
+                        // gs:// をブラウザで表示可能な https://storage.googleapis.com/ に変換
+                        let publicUrl = gcsPath.replace('gs://', 'https://storage.googleapis.com/');
+                        const pageNum = res.pageNumber || 1;
+                        const finalUrl = `${encodeURI(publicUrl)}#page=${pageNum}`;
                         
-                        html += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
-                                    📄 [${index + 1}] マニュアル P.${res.pageNumber || 1}
-                                 </span>`;
+                        answerHtml += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
+                                        📄 [${index + 1}] マニュアル P.${pageNum}
+                                     </span>`;
                     }
                 });
-                html += `</div>`;
+                answerHtml += `</div>`;
+            } else {
+                answerHtml += `<div style="margin-top:10px; color:#666; font-size:12px;">※関連する引用元は見つかりませんでした。</div>`;
             }
-            document.getElementById(loadingId).innerHTML = html;
+            
+            document.getElementById(loadingId).innerHTML = answerHtml;
+
         } catch (error) {
-            document.getElementById(loadingId).innerHTML = "エラーが発生しました。";
-            console.error(error);
+            document.getElementById(loadingId).innerHTML = "エラーが発生しました。接続を確認してください。";
+            console.error('Error:', error);
         } finally {
             input.disabled = false;
             btn.disabled = false;
@@ -164,11 +205,16 @@
         }
     }
 
+    // PDFを右側のiframeに表示する関数
     function openPdf(url) {
         const viewer = document.getElementById('pdf-viewer');
         const placeholder = document.getElementById('pdf-placeholder');
+        
+        // プレースホルダーを隠してiframeを表示
         placeholder.style.display = 'none';
         viewer.style.display = 'block';
+        
+        // iframeのソースにPDFのURLをセット
         viewer.src = url;
     }
 </script>

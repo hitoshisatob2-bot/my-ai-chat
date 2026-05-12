@@ -2,106 +2,111 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>kubota WSM AI ガイド.b</title>
+    <title>kubota WSM AI Assistant</title>
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; background: #7188ad; }
-        #chat-section { flex: 1; display: flex; flex-direction: column; border-right: 2px solid #2c3e50; }
-        #pdf-section { flex: 1; background: #525659; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 12px; border-radius: 10px; max-width: 85%; line-height: 1.6; font-size: 14px; }
-        .ai { background: white; align-self: flex-start; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .user { background: #4cd964; align-self: flex-end; }
-        .cite-link { color: #007bff; cursor: pointer; font-weight: bold; text-decoration: underline; margin: 0 2px; }
-        #input-area { padding: 15px; background: white; display: flex; gap: 10px; }
-        input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
-        button { padding: 10px 20px; border-radius: 5px; border: none; background: #007bff; color: white; cursor: pointer; }
-        iframe { width: 100%; height: 100%; border: none; }
+        /* 左右分割のレイアウト設定 */
+        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
+        
+        /* 左側：チャットエリア */
+        #chat-container {
+            flex: 1; /* 画面の半分を使用 */
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #ddd;
+            background: #f9f9f9;
+        }
+
+        /* 右側：PDFビューアーエリア */
+        #pdf-container {
+            flex: 1; /* 残り半分を使用 */
+            background: #525659;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #pdf-viewer { width: 100%; height: 100%; border: none; }
+
+        /* チャットの吹き出しなどの装飾 */
+        #messages { flex: 1; overflow-y: auto; padding: 20px; }
+        .answer-text { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .source-tag {
+            display: inline-block;
+            background: #e1f5fe;
+            color: #0288d1;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 0.9em;
+            border: 1px solid #0288d1;
+        }
+        .source-tag:hover { background: #b3e5fc; }
+        .input-area { padding: 20px; background: white; border-top: 1px solid #ddd; }
     </style>
 </head>
 <body>
 
-<div id="chat-section">
-    <div id="messages"><div class="msg ai">こんにちは！機種ごとの整備手順をお教えします。</div></div>
-    <div id="input-area">
-        <input type="text" id="userInput" placeholder="例：SL280のボンネットの開け方は？" onkeypress="if(event.key==='Enter') send()">
-        <button onclick="send()">送信</button>
+<div id="chat-container">
+    <div id="messages">
+        </div>
+    <div class="input-area">
+        <input type="text" id="queryInput" placeholder="質問を入力..." style="width: 80%; padding: 10px;">
+        <button onclick="askAI()" style="padding: 10px;">送信</button>
     </div>
 </div>
-<div id="pdf-section"><iframe id="viewer" src="about:blank"></iframe></div>
+
+<div id="pdf-container">
+    <div id="pdf-placeholder" style="color: white; text-align: center; margin-top: 50%;">
+        ソースアイコンをクリックするとマニュアルが表示されます
+    </div>
+    <iframe id="pdf-viewer" style="display: none;"></iframe>
+</div>
 
 <script>
-    async function send() {
-        const input = document.getElementById('userInput');
-        const query = input.value.trim();
-        if(!query) return;
+async function askAI() {
+    const query = document.getElementById('queryInput').value;
+    const response = await fetch('YOUR_CLOUD_RUN_URL/query', { // あなたのURLに差し替え
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+    });
+    
+    const data = await response.json();
+    const msgDiv = document.getElementById('messages');
 
-        append('user', query);
-        input.value = '';
+    // 1. 回答テキストを表示
+    let htmlContent = `<div class="answer-text"><strong>回答:</strong><br>${data.answer.replace(/\n/g, '<br>')}`;
 
-        try {
-            // ご自身のCloud Run URL
-            const res = await fetch('https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query })
-            });
-            const data = await res.json();
+    // 2. 引用元ボタン（ソース）の生成
+    if (data.results && data.results.length > 0) {
+        htmlContent += '<hr><div class="sources"><strong>引用元:</strong><br>';
+        data.results.forEach(res => {
+            // gs:// 形式をブラウザ表示用 URL に変換
+            const pdfUrl = res.link.replace('gs://', 'https://storage.cloud.google.com/');
+            // ページ番号を指定するためのアンカーを追加
+            const finalUrl = `${pdfUrl}#page=${res.pageNumber}`;
             
-            // データが正しく取得できたか判定
-            if (data.answer && data.answer.trim() !== '') {
-                renderAiResponse(data);
-            } else {
-                append('ai', '回答が見つかりませんでした。');
-            }
-        } catch (e) {
-            append('ai', 'エラーが発生しました。通信状況を確認してください。');
-            console.error(e);
-        }
-    }
-
-    function append(type, text) {
-        const div = document.createElement('div');
-        div.className = `msg ${type}`;
-        div.innerHTML = text.replace(/\n/g, '<br>');
-        document.getElementById('messages').appendChild(div);
-        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-    }
-
-    function renderAiResponse(data) {
-        let html = data.answer;
-        
-        // [1] などの形式をPDFリンクに変換
-        html = html.replace(/\[(\d+)\]/g, (match, num) => {
-            const index = parseInt(num) - 1;
-            const ref = data.results[index];
-            
-            if (ref && ref.document && ref.document.derivedStructData) {
-                const struct = ref.document.derivedStructData;
-                
-                // GCSのURLを取得してHTTPSに変換
-                const gcsUri = struct.link || struct.formattedUrl || '';
-                if (gcsUri) {
-                    const httpUrl = gcsUri.replace('gs://', 'https://storage.googleapis.com/');
-                    
-                    // ページ番号の抽出
-                    let page = 1;
-                    if (struct.extractive_segments && struct.extractive_segments[0]) {
-                        page = struct.extractive_segments[0].pageNumber || 1;
-                    }
-                    
-                    const finalUrl = `${httpUrl}#page=${page}`;
-                    return `<span class="cite-link" onclick="view('${finalUrl}')">[${num}]</span>`;
-                }
-            }
-            return match;
+            htmlContent += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
+                                📄 [${res.id}] ${res.title} (P.${res.pageNumber})
+                            </span>`;
         });
-        
-        append('ai', html);
+        htmlContent += '</div>';
     }
+    
+    htmlContent += '</div>';
+    msgDiv.innerHTML = htmlContent;
+}
 
-    function view(url) {
-        document.getElementById('viewer').src = url;
-    }
+// 右側の iframe に PDF をセットする関数
+function openPdf(url) {
+    const viewer = document.getElementById('pdf-viewer');
+    const placeholder = document.getElementById('pdf-placeholder');
+    
+    placeholder.style.display = 'none';
+    viewer.style.display = 'block';
+    viewer.src = url; // ページ番号付きのURLをセット
+}
 </script>
+
 </body>
 </html>

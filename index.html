@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI Assistant.a</title>
+    <title>kubota WSM AI Assistant.b</title>
     <style>
         /* レイアウト設定 */
         body {
@@ -177,18 +177,29 @@
             // 引用元の処理
             if (data.results && data.results.length > 0) {
                 html += `<div class="source-section"><strong>引用元：</strong><br>`;
+                // data.results.forEach の中をこれに差し替え
                 data.results.forEach(res => {
-                    // 修正の核：gs:// を埋め込み可能な storage.googleapis.com に置換
-                    const publicUrl = res.link.replace('gs://', 'https://storage.googleapis.com/');
-                    // 日本語ファイル名を正しく扱うためのエンコード
-                    const encodedUrl = encodeURI(publicUrl);
-                    // ページ指定アンカーを追加
-                    const finalUrl = `${encodedUrl}#page=${res.pageNumber}`;
-                    
-                    html += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
-                                📄 [${res.id}] マニュアル P.${res.pageNumber}
-                             </span>`;
-                });
+                // 1. 全ての形式を一旦クリアしてから、確実に public 用ドメインに変換
+                let link = res.link;
+                if (link.startsWith('gs://')) {
+                    link = link.replace('gs://', 'https://storage.googleapis.com/');
+                } else if (link.includes('storage.cloud.google.com')) {
+                    link = link.replace('storage.cloud.google.com/', 'storage.googleapis.com/');
+                }
+    
+                // 2. 日本語のファイル名をURLで使える形式に変換（重要）
+                const encodedUrl = encodeURI(link);
+    
+                // 3. ページ番号を追加
+                const finalUrl = `${encodedUrl}#page=${res.pageNumber}`;
+    
+                // デバッグ用：ブラウザの「コンソール」に生成されたURLを表示させる（確認用）
+                console.log("Generated PDF URL:", finalUrl);
+    
+                html += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
+                            📄 [${res.id}] マニュアル P.${res.pageNumber}
+                         </span>`;
+            });
                 html += `</div>`;
             }
 

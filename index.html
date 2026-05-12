@@ -3,28 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI Assistant.b</title>
+    <title>kubota WSM AI Assistant.c</title>
     <style>
-        /* レイアウト設定 */
         body {
             margin: 0;
             display: flex;
             height: 100vh;
             width: 100vw;
-            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            font-family: sans-serif;
             overflow: hidden;
             background-color: #f0f2f5;
         }
 
-        /* 左側：チャットエリア */
+        /* 左側：チャット */
         #chat-container {
-            width: 450px;
+            width: 400px;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid #d1d1d1;
+            border-right: 1px solid #ccc;
             background: white;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-            z-index: 10;
         }
 
         #messages {
@@ -33,13 +30,12 @@
             padding: 20px;
         }
 
-        /* 右側：PDFビューアーエリア */
+        /* 右側：PDF表示エリア */
         #pdf-container {
             flex: 1;
             background: #525659;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
             position: relative;
         }
 
@@ -47,90 +43,55 @@
             width: 100%;
             height: 100%;
             border: none;
-            display: none; /* 初期は非表示 */
+            display: none;
         }
 
         #pdf-placeholder {
-            color: #ccc;
+            margin: auto;
+            color: white;
             text-align: center;
-            font-size: 1.2em;
         }
 
-        /* チャットパーツの装飾 */
+        /* パーツ装飾 */
         .message-bubble {
-            background: #f1f0f0;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            line-height: 1.6;
-            font-size: 15px;
-            color: #333;
-        }
-
-        .source-section {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px dashed #ccc;
+            background: #e9ecef;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            line-height: 1.5;
         }
 
         .source-tag {
             display: inline-block;
             background: #007bff;
             color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
+            padding: 4px 10px;
+            border-radius: 15px;
             cursor: pointer;
-            margin: 4px;
-            font-size: 13px;
-            transition: background 0.2s;
+            margin: 3px;
+            font-size: 12px;
         }
 
-        .source-tag:hover {
-            background: #0056b3;
-        }
-
-        /* 入力エリア */
         .input-area {
-            padding: 20px;
-            border-top: 1px solid #eee;
-            background: #fff;
+            padding: 15px;
+            border-top: 1px solid #ddd;
             display: flex;
             gap: 10px;
         }
 
-        #queryInput {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            outline: none;
-        }
-
-        button {
-            padding: 10px 20px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        button:disabled {
-            background: #ccc;
-        }
+        #queryInput { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="chat-container">
     <div id="messages">
-        <div class="message-bubble">
-            こんにちは。クボタ整備マニュアルについて質問してください。
-        </div>
+        <div class="message-bubble">こんにちは。クボタ整備マニュアルについて質問してください。</div>
     </div>
     <div class="input-area">
-        <input type="text" id="queryInput" placeholder="例：エンジンの分解手順は？" onkeypress="if(event.key==='Enter') askAI()">
+        <input type="text" id="queryInput" placeholder="質問を入力..." onkeypress="if(event.key==='Enter') askAI()">
         <button id="sendBtn" onclick="askAI()">送信</button>
     </div>
 </div>
@@ -141,20 +102,19 @@
 </div>
 
 <script>
-    // Cloud RunのURL（ご提示いただいたURLをセット済み）
+    // Cloud RunのURLを直接指定
     const API_URL = 'https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query';
 
     async function askAI() {
         const input = document.getElementById('queryInput');
         const btn = document.getElementById('sendBtn');
         const query = input.value.trim();
-        
         if (!query) return;
 
-        // UIを「考え中」にする
         input.value = '';
         input.disabled = true;
         btn.disabled = true;
+
         const msgDiv = document.getElementById('messages');
         const loadingId = 'loading-' + Date.now();
         msgDiv.innerHTML += `<div class="message-bubble" id="${loadingId}">考え中...</div>`;
@@ -167,59 +127,46 @@
                 body: JSON.stringify({ query })
             });
 
-            if (!response.ok) throw new Error('通信エラーが発生しました');
-            
             const data = await response.json();
-            
-            // 回答の表示
             let html = `<div>${data.answer.replace(/\n/g, '<br>')}</div>`;
 
-            // 引用元の処理
             if (data.results && data.results.length > 0) {
-                html += `<div class="source-section"><strong>引用元：</strong><br>`;
-                // data.results.forEach の中をこれに差し替え
-                data.results.forEach(res => {
-                // 1. 全ての形式を一旦クリアしてから、確実に public 用ドメインに変換
-                let link = res.link;
-                if (link.startsWith('gs://')) {
-                    link = link.replace('gs://', 'https://storage.googleapis.com/');
-                } else if (link.includes('storage.cloud.google.com')) {
-                    link = link.replace('storage.cloud.google.com/', 'storage.googleapis.com/');
-                }
-    
-                // 2. 日本語のファイル名をURLで使える形式に変換（重要）
-                const encodedUrl = encodeURI(link);
-    
-                // 3. ページ番号を追加
-                const finalUrl = `${encodedUrl}#page=${res.pageNumber}`;
-    
-                // デバッグ用：ブラウザの「コンソール」に生成されたURLを表示させる（確認用）
-                console.log("Generated PDF URL:", finalUrl);
-    
-                html += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
-                            📄 [${res.id}] マニュアル P.${res.pageNumber}
-                         </span>`;
-            });
+                html += `<div style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px;"><strong>引用元:</strong><br>`;
+                data.results.forEach((res, index) => {
+                    // ログに基づき、深い階層にあるリンクを安全に取得
+                    let rawLink = "";
+                    if (res.document && res.document.derivedStructData && res.document.derivedStructData.fields && res.document.derivedStructData.fields.link) {
+                        rawLink = res.document.derivedStructData.fields.link.stringValue;
+                    } else {
+                        rawLink = res.link || "";
+                    }
+
+                    if (rawLink) {
+                        // 公開アクセス用URLに変換
+                        let publicUrl = rawLink.replace('gs://', 'https://storage.googleapis.com/');
+                        const finalUrl = `${encodeURI(publicUrl)}#page=${res.pageNumber || 1}`;
+                        
+                        html += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
+                                    📄 [${index + 1}] マニュアル P.${res.pageNumber || 1}
+                                 </span>`;
+                    }
+                });
                 html += `</div>`;
             }
-
             document.getElementById(loadingId).innerHTML = html;
-
         } catch (error) {
-            document.getElementById(loadingId).innerHTML = 'エラー：' + error.message;
+            document.getElementById(loadingId).innerHTML = "エラーが発生しました。";
+            console.error(error);
         } finally {
             input.disabled = false;
             btn.disabled = false;
-            input.focus();
             msgDiv.scrollTop = msgDiv.scrollHeight;
         }
     }
 
-    // 右側のiframeにPDFを表示する
     function openPdf(url) {
         const viewer = document.getElementById('pdf-viewer');
         const placeholder = document.getElementById('pdf-placeholder');
-        
         placeholder.style.display = 'none';
         viewer.style.display = 'block';
         viewer.src = url;

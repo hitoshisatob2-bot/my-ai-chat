@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI Assistant.c</title>
+    <title>kubota WSM AI Assistant.d</title>
     <style>
         body { margin: 0; display: flex; height: 100vh; width: 100vw; font-family: sans-serif; overflow: hidden; background-color: #f4f7f9; }
         #chat-container { width: 450px; display: flex; flex-direction: column; border-right: 1px solid #d1d9e0; background: white; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; }
         #pdf-container { flex: 1; background: #525659; display: flex; flex-direction: column; position: relative; }
         #pdf-viewer { width: 100%; height: 100%; border: none; display: none; }
-        #pdf-placeholder { margin: auto; color: #ffffff; text-align: center; }
+        #pdf-placeholder { margin: auto; color: #ffffff; text-align: center; font-size: 14px; }
         .message-bubble { background: #f0f2f5; padding: 15px; border-radius: 12px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
         .source-tag { display: inline-block; background: #007bff; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; margin: 4px; font-size: 12px; font-weight: bold; }
+        .source-tag.error { background: #dc3545; }
         .input-area { padding: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; }
         #queryInput { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
         #sendBtn { padding: 10px 24px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; }
@@ -37,7 +38,6 @@
 
 <script>
     const API_URL = 'https://vertex-search-proxy-242714184617.asia-northeast1.run.app/query';
-    // あなたのバケット名
     const BUCKET_NAME = 'kubota-wsm-pdf-0401';
 
     async function askAI() {
@@ -69,18 +69,43 @@
                 answerHtml += `<div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"><strong>引用元:</strong><br>`;
                 
                 data.results.forEach((res, index) => {
-                    // APIのlinkが空なので、title情報などからURLを強制生成
-                    const fileName = res.title || "マニュアル"; 
+                    // --- 動的URL抽出ロジック ---
+                    // 1. linkフィールドを確認
+                    // 2. なければtitleフィールドに拡張子を付けて試行
+                    // 3. なければdocument構造の中身を深掘り
+                    let pdfPath = res.link || 
+                                  res.document?.derivedStructData?.link || 
+                                  res.document?.uri || 
+                                  "";
+
+                    // もしリンクが空で、タイトルがある場合、タイトルをファイル名として利用
+                    if (!pdfPath && res.title) {
+                        pdfPath = res.title.endsWith('.pdf') ? res.title : res.title + ".pdf";
+                    }
+
                     const pageNum = res.pageNumber || 1;
                     
-                    // 公開アクセス用URLを組み立て (ファイル名が「マニュアル」の場合、実際のファイル名に合わせて調整が必要な場合があります)
-                    // ここでは、コンソールの情報に基づきURLを生成します
-                    const publicUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(fileName)}.pdf`;
-                    const finalUrl = `${publicUrl}#page=${pageNum}`;
-                    
-                    answerHtml += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
-                                    📄 [${index + 1}] ${fileName} P.${pageNum}
-                                 </span>`;
+                    if (pdfPath) {
+                        // URLの整形（gs:// を https:// に変換、またはファイル名のみの場合はフルURL化）
+                        let finalUrl = "";
+                        if (pdfPath.startsWith('http')) {
+                            finalUrl = pdfPath;
+                        } else if (pdfPath.startsWith('gs://')) {
+                            finalUrl = pdfPath.replace('gs://', 'https://storage.googleapis.com/');
+                        } else {
+                            // ファイル名のみと判断される場合
+                            finalUrl = `https://storage.googleapis.com/${BUCKET_NAME}/${encodeURIComponent(pdfPath)}`;
+                        }
+                        
+                        // ページ指定を追加
+                        finalUrl += `#page=${pageNum}`;
+                        
+                        answerHtml += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
+                                        📄 [${index + 1}] ${res.title || 'PDF'} P.${pageNum}
+                                     </span>`;
+                    } else {
+                        answerHtml += `<span class="source-tag error">⚠️ [${index + 1}] リンク不明</span>`;
+                    }
                 });
                 answerHtml += `</div>`;
             }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI Assistant.e</title>
+    <title>kubota WSM AI Assistant.a</title>
     <style>
         body {
             margin: 0;
@@ -82,6 +82,12 @@
 
         .source-tag:hover {
             background: #0056b3;
+        }
+
+        /* エラー用ボタン（赤色） */
+        .source-tag.error {
+            background: #dc3545;
+            cursor: not-allowed;
         }
 
         /* 入力エリア */
@@ -165,32 +171,43 @@
             const data = await response.json();
             let answerHtml = `<div>${data.answer.replace(/\n/g, '<br>')}</div>`;
 
-            // 検索結果（引用元）がある場合のみボタンを表示
+            // 検索結果（引用元）がある場合の処理
             if (data.results && data.results.length > 0) {
                 answerHtml += `<div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"><strong>引用元:</strong><br>`;
+                
                 data.results.forEach((res, index) => {
-                    // ログ(image_8a09f7.jpg)の構造に合わせてリンクを抽出
-                    let gcsPath = "";
-                    if (res.document && res.document.derivedStructData && res.document.derivedStructData.fields && res.document.derivedStructData.fields.link) {
-                        gcsPath = res.document.derivedStructData.fields.link.stringValue;
-                    } else {
-                        gcsPath = res.link || "";
-                    }
+                    // あらゆるパターンのデータ構造からリンクを探す（強化版）
+                    let gcsPath = res.document?.uri || 
+                                  res.document?.derivedStructData?.link || 
+                                  res.document?.derivedStructData?.fields?.link?.stringValue || 
+                                  res.link || 
+                                  "";
+
+                    console.log(`[デバッグ] 取得したリンク情報 ${index + 1}:`, gcsPath);
+
+                    const pageNum = res.pageNumber || 1;
 
                     if (gcsPath) {
-                        // gs:// をブラウザで表示可能な https://storage.googleapis.com/ に変換
-                        let publicUrl = gcsPath.replace('gs://', 'https://storage.googleapis.com/');
-                        const pageNum = res.pageNumber || 1;
+                        let publicUrl = gcsPath;
+                        // gs:// から始まる場合は https:// に変換
+                        if (gcsPath.startsWith('gs://')) {
+                            publicUrl = gcsPath.replace('gs://', 'https://storage.googleapis.com/');
+                        }
+                        
                         const finalUrl = `${encodeURI(publicUrl)}#page=${pageNum}`;
                         
+                        // 正常な青いボタン
                         answerHtml += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
                                         📄 [${index + 1}] マニュアル P.${pageNum}
+                                     </span>`;
+                    } else {
+                        // パスが見つからなかった場合は赤いボタンを表示して原因を可視化
+                        answerHtml += `<span class="source-tag error" title="URLデータが含まれていません">
+                                        ⚠️ [${index + 1}] リンク取得失敗
                                      </span>`;
                     }
                 });
                 answerHtml += `</div>`;
-            } else {
-                answerHtml += `<div style="margin-top:10px; color:#666; font-size:12px;">※関連する引用元は見つかりませんでした。</div>`;
             }
             
             document.getElementById(loadingId).innerHTML = answerHtml;
@@ -210,11 +227,8 @@
         const viewer = document.getElementById('pdf-viewer');
         const placeholder = document.getElementById('pdf-placeholder');
         
-        // プレースホルダーを隠してiframeを表示
         placeholder.style.display = 'none';
         viewer.style.display = 'block';
-        
-        // iframeのソースにPDFのURLをセット
         viewer.src = url;
     }
 </script>

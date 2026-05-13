@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kubota WSM AI Assistant.a</title>
+    <title>kubota WSM AI Assistant.b</title>
     <style>
         body {
             margin: 0;
@@ -44,7 +44,7 @@
             width: 100%;
             height: 100%;
             border: none;
-            display: none; /* 初期状態は非表示 */
+            display: none;
         }
 
         #pdf-placeholder {
@@ -169,6 +169,10 @@
             if (!response.ok) throw new Error('Network response was not ok');
 
             const data = await response.json();
+            
+            // ★★★ ここでAPIから来たデータを丸ごとコンソールに出力します ★★★
+            console.log("【重要】APIからのレスポンス全体:", data);
+
             let answerHtml = `<div>${data.answer.replace(/\n/g, '<br>')}</div>`;
 
             // 検索結果（引用元）がある場合の処理
@@ -176,32 +180,30 @@
                 answerHtml += `<div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"><strong>引用元:</strong><br>`;
                 
                 data.results.forEach((res, index) => {
-                    // あらゆるパターンのデータ構造からリンクを探す（強化版）
+                    // ★★★ 個別の結果データもコンソールに出力します ★★★
+                    console.log(`[データ構造] Result ${index + 1}:`, res);
+
+                    // パス取得ロジック
                     let gcsPath = res.document?.uri || 
                                   res.document?.derivedStructData?.link || 
                                   res.document?.derivedStructData?.fields?.link?.stringValue || 
                                   res.link || 
                                   "";
 
-                    console.log(`[デバッグ] 取得したリンク情報 ${index + 1}:`, gcsPath);
-
                     const pageNum = res.pageNumber || 1;
 
                     if (gcsPath) {
                         let publicUrl = gcsPath;
-                        // gs:// から始まる場合は https:// に変換
                         if (gcsPath.startsWith('gs://')) {
                             publicUrl = gcsPath.replace('gs://', 'https://storage.googleapis.com/');
                         }
                         
                         const finalUrl = `${encodeURI(publicUrl)}#page=${pageNum}`;
                         
-                        // 正常な青いボタン
                         answerHtml += `<span class="source-tag" onclick="openPdf('${finalUrl}')">
                                         📄 [${index + 1}] マニュアル P.${pageNum}
                                      </span>`;
                     } else {
-                        // パスが見つからなかった場合は赤いボタンを表示して原因を可視化
                         answerHtml += `<span class="source-tag error" title="URLデータが含まれていません">
                                         ⚠️ [${index + 1}] リンク取得失敗
                                      </span>`;
@@ -222,7 +224,6 @@
         }
     }
 
-    // PDFを右側のiframeに表示する関数
     function openPdf(url) {
         const viewer = document.getElementById('pdf-viewer');
         const placeholder = document.getElementById('pdf-placeholder');
